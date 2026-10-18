@@ -20,6 +20,10 @@ adb push "$OUT/fixture/pawchive_mobile_downloads_v1.xml" /data/local/tmp/m10-old
 adb shell run-as "$APP" mkdir -p databases shared_prefs
 adb shell run-as "$APP" cp /data/local/tmp/m10-old.db databases/pawchive_library.db
 adb shell run-as "$APP" cp /data/local/tmp/m10-old-prefs.xml shared_prefs/pawchive_mobile_downloads_v1.xml
+# Seed a harmless 8x8 PNG into app-specific storage for thumbnail/open/delete QA.
+IMAGE_ID="00000000-0000-4000-8000-000000000003"
+M4_DIR="/storage/emulated/0/Android/data/$APP/files/Download/Pawchive-M4"
+adb push "$OUT/fixture/qa-sample.png" /data/local/tmp/m10-qa-sample.png >/dev/null
 
 # Actual Android package update. NEVER uninstall or clear data.
 adb install -r "$NEW_APK"
@@ -27,8 +31,23 @@ adb logcat -c || true
 adb shell am start -W -n "$APP/.MainActivity" | tee "$OUT/launch.txt"
 sleep 10
 adb shell pidof "$APP" >/dev/null || { echo "FAIL: app did not survive migration"; exit 1; }
+# Storage access is initialized by the Android app after first launch.
+adb shell mkdir -p "$M4_DIR"
+adb shell cp /data/local/tmp/m10-qa-sample.png "$M4_DIR/${IMAGE_ID}_qa-sample.png"
+adb shell test -s "$M4_DIR/${IMAGE_ID}_qa-sample.png"
 node "$ROOT/scripts/inspect-webview.mjs"
 node "$ROOT/scripts/m10-2-native-retry.mjs" 424242 success
+adb shell am force-stop "$APP"
+adb shell am start -W -n "$APP/.MainActivity" >/dev/null
+sleep 4
+node "$ROOT/scripts/m10-2-native-retry.mjs" 424242 duplicate
+# The gallery methods must work on a real app-owned PNG and never read arbitrary paths.
+node "$ROOT/scripts/m10-3-gallery-action.mjs" thumbnail
+node "$ROOT/scripts/m10-3-gallery-action.mjs" open
+adb shell am start -W -n "$APP/.MainActivity" >/dev/null
+sleep 4
+node "$ROOT/scripts/m10-3-gallery-action.mjs" delete
+adb shell test ! -f "$M4_DIR/${IMAGE_ID}_qa-sample.png"
 cp "$ROOT/qa-output/webview-diagnostics.json" "$OUT/webview-diagnostics.json"
 cp "$ROOT/qa-output/webview-cdp.png" "$OUT/webview-cdp.png"
 python3 "$ROOT/scripts/check-screenshot.py" "$OUT/webview-cdp.png"

@@ -15,7 +15,7 @@ export interface NativeDownloadRecord {
 interface PawchiveDownloadsPlugin {
   enqueue(options: { url: string; filename: string; wifiOnly: boolean }): Promise<{ id: string }>;
   list(): Promise<{ downloads: NativeDownloadRecord[] }>;
-  retry(options: { id: string; wifiOnly: boolean }): Promise<{ id: string }>;
+  retry(options: { id: string; wifiOnly: boolean }): Promise<{ id: string; reused?: boolean }>;
   cancel(options: { id: string }): Promise<{ success: boolean }>;
   favorite(options: { id: string; favorite: boolean }): Promise<{ success: boolean }>;
   open(options: { id: string }): Promise<{ success: boolean }>;
@@ -41,10 +41,10 @@ export async function enqueueDownload(url: string, filename: string, wifiOnly: b
   const result = await native.enqueue({ url, filename, wifiOnly });
   return result.id;
 }
-export async function retryDownload(id: string, wifiOnly: boolean): Promise<string> {
+export async function retryDownload(id: string, wifiOnly: boolean): Promise<{id:string; reused:boolean}> {
   if (!runningOnAndroid()) throw new Error('Android 앱에서만 다운로드 재시도가 가능합니다.');
   const result = await native.retry({ id, wifiOnly });
-  return result.id;
+  return {id: result.id, reused: result.reused === true};
 }
 export async function cancelDownload(id: string): Promise<boolean> {
   if (!runningOnAndroid()) return false;
