@@ -24,9 +24,6 @@ adb shell run-as "$APP" cp /data/local/tmp/m10-old-prefs.xml shared_prefs/pawchi
 IMAGE_ID="00000000-0000-4000-8000-000000000003"
 M4_DIR="/storage/emulated/0/Android/data/$APP/files/Download/Pawchive-M4"
 adb push "$OUT/fixture/qa-sample.png" /data/local/tmp/m10-qa-sample.png >/dev/null
-adb shell run-as "$APP" mkdir -p "$M4_DIR"
-adb shell run-as "$APP" cp /data/local/tmp/m10-qa-sample.png "$M4_DIR/${IMAGE_ID}_qa-sample.png"
-adb shell run-as "$APP" test -s "$M4_DIR/${IMAGE_ID}_qa-sample.png"
 
 # Actual Android package update. NEVER uninstall or clear data.
 adb install -r "$NEW_APK"
@@ -34,6 +31,10 @@ adb logcat -c || true
 adb shell am start -W -n "$APP/.MainActivity" | tee "$OUT/launch.txt"
 sleep 10
 adb shell pidof "$APP" >/dev/null || { echo "FAIL: app did not survive migration"; exit 1; }
+# Storage access is initialized by the Android app after first launch.
+adb shell run-as "$APP" mkdir -p "$M4_DIR"
+adb shell run-as "$APP" cp /data/local/tmp/m10-qa-sample.png "$M4_DIR/${IMAGE_ID}_qa-sample.png"
+adb shell run-as "$APP" test -s "$M4_DIR/${IMAGE_ID}_qa-sample.png"
 node "$ROOT/scripts/inspect-webview.mjs"
 node "$ROOT/scripts/m10-2-native-retry.mjs" 424242 success
 adb shell am force-stop "$APP"
