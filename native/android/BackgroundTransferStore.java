@@ -40,7 +40,7 @@ final class BackgroundTransferStore {
     private final Map<String, Entry> entries = new LinkedHashMap<>();
     private final SecureRandom random = new SecureRandom();
     private final File registry;
-    private final UrlVault vault;
+    private UrlVault vault;
 
     static synchronized BackgroundTransferStore get(Context context) throws Exception {
         if (instance == null) instance = new BackgroundTransferStore(context.getApplicationContext());
@@ -48,9 +48,10 @@ final class BackgroundTransferStore {
     }
     private BackgroundTransferStore(Context context) throws Exception {
         registry = new File(context.getNoBackupFilesDir(), "pawchive-m7-jobs.json");
-        vault = new UrlVault();
         if (!registry.isFile()) return;
         JSONArray rows = new JSONArray(new String(Files.readAllBytes(registry.toPath()), StandardCharsets.UTF_8));
+        // A restored encrypted registry must not silently generate a fresh key.
+        if (rows.length() > 0) vault = new UrlVault(false);
         for (int i = 0; i < rows.length(); i++) {
             JSONObject item = rows.optJSONObject(i); if (item == null) continue;
             Entry e = new Entry();
@@ -87,6 +88,7 @@ final class BackgroundTransferStore {
     }
     synchronized Entry create(String url, String filename, String sha256, int speedKiB, boolean wifiOnly) throws Exception {
         Entry e = new Entry(); e.id = UUID.randomUUID().toString();
+        if (vault == null) vault = new UrlVault(); // Create key only for a new transfer.
         e.url = url; e.sealedUrl = vault.seal(url);
         e.filename = filename; e.sha256 = sha256; e.speedKiB = speedKiB; e.wifiOnly = wifiOnly;
         do { e.jobId = 11000 + random.nextInt(1900000000); }

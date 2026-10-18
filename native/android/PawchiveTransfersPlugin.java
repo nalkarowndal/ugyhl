@@ -77,9 +77,18 @@ public final class PawchiveTransfersPlugin extends Plugin {
         base=new File(base,"Pawchive-M4");base.mkdirs();
         registry=new File(getContext().getNoBackupFilesDir(),"pawchive-transfers-m4.json");
         try{
-            vault=new UrlVault();
             if(registry.isFile()){
                 JSONArray arr=new JSONArray(new String(Files.readAllBytes(registry.toPath()),StandardCharsets.UTF_8));
+                if(arr.length()>0){
+                    boolean hasSealed=false;
+                    for(int i=0;i<arr.length();i++){
+                        JSONObject item=arr.optJSONObject(i);
+                        if(item!=null && !item.optString("urlSealed","").isEmpty()) hasSealed=true;
+                    }
+                    // Existing encrypted records require their original key. Empty or
+                    // absent registries must not create one at app startup.
+                    vault=new UrlVault(!hasSealed);
+                }
                 for(int i=0;i<arr.length();i++){
                     JSONObject item=arr.optJSONObject(i);if(item==null)continue;
                     Entry entry=Entry.parse(item, vault);
@@ -132,7 +141,12 @@ public final class PawchiveTransfersPlugin extends Plugin {
         try{TransferCore.verifiedUrl(url);}catch(Exception error){call.reject("INVALID_HTTPS_URL");return;}
         Entry e=new Entry();e.id=UUID.randomUUID().toString();e.url=url;
         e.name=safeName(call.getString("filename","download.bin"));e.speedKiB=limit;e.sha256=trustedSha;
-        try { e.sealedUrl = vault.seal(url); }
+        try {
+            synchronized(this) {
+                if(vault==null) vault=new UrlVault();
+                e.sealedUrl = vault.seal(url);
+            }
+        }
         catch (Exception failed) {call.reject("SECURE_STORAGE_UNAVAILABLE");return;}
         synchronized(this){
             entries.put(e.id,e);
