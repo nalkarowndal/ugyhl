@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { AlertTriangle, ArrowLeft, ArrowRight, CheckSquare, Download, ExternalLink, FolderSearch, Image, LoaderCircle, Search, Square } from 'lucide-react';
 import { runningOnAndroid, enqueueDownload } from '../../lib/native';
 import { safeFilenameFromUrl } from '../../lib/url';
-import { apiUrl, fetchCreatorPage, parseCreatorTarget, type CreatorPost, type CreatorTarget, type MediaKind } from '../../lib/pawchive';
+import { fetchCreatorPage, parseCreatorTarget, type CreatorPost, type CreatorTarget, type MediaKind } from '../../lib/pawchive';
 import './explorer.css';
 
 type KindFilter = 'all' | MediaKind;
