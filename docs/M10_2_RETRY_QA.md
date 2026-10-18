@@ -5,6 +5,7 @@
 - Native retry returns stable `RETRY_KEY_UNAVAILABLE` or `RETRY_CIPHERTEXT_UNREADABLE` error codes without exposing plaintext URL, raw ciphertext or key material.
 - The React retry button is disabled while its request is in progress, and provides a Korean explanation prompting user re-entry of the original URL if the saved ciphertext cannot be recovered. Existing history and downloaded files are left intact.
 - Legacy SharedPreferences migration does not create an unnecessary new encryption key when there are no legacy entries.
+- Both M4 and UIDT transfer engines now defer creating an AES key until a **new** transfer; existing sealed registries require the old key. This avoids accidentally masking the missing-key state when Android restores only the encrypted library database.
 
 ## Automated QA
 The disposable Android 15 emulator workflow builds an older M9.1 APK and an M10.2 APK signed by the same debug key, verifies a real SQLite v2→v3 upgrade, then calls the real Capacitor plugin with a test-only `example.invalid` URL (no user content):
