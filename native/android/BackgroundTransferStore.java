@@ -114,7 +114,21 @@ final class BackgroundTransferStore {
                 && scheduler != null && scheduler.getPendingJob(e.jobId) == null) {
                 e.state = "paused"; e.error = "RESELECT_TO_RESUME"; save();
             }
-            array.put(e.publicView());
+            JSONObject item = e.publicView();
+            if (("running".equals(e.state) || "queued".equals(e.state)) &&
+                Build.VERSION.SDK_INT >= 34 && scheduler != null) {
+                try {
+                    int reason = scheduler.getPendingJobReason(e.jobId);
+                    String status = "WAIT_SYSTEM";
+                    if (reason == JobScheduler.PENDING_JOB_REASON_EXECUTING) status = "EXECUTING";
+                    else if (reason == JobScheduler.PENDING_JOB_REASON_CONSTRAINT_CONNECTIVITY) status = "WAIT_NETWORK";
+                    else if (reason == JobScheduler.PENDING_JOB_REASON_DEVICE_STATE) status = "WAIT_DEVICE";
+                    else if (reason == JobScheduler.PENDING_JOB_REASON_QUOTA) status = "WAIT_QUOTA";
+                    else if (reason == JobScheduler.PENDING_JOB_REASON_INVALID_JOB_ID) status = "MISSING_JOB";
+                    item.put("schedulerState", status);
+                } catch (RuntimeException ignored) { item.put("schedulerState", "UNKNOWN"); }
+            }
+            array.put(item);
         }
         return array;
     }

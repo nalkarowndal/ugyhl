@@ -10,7 +10,7 @@ if (!fs.existsSync(path.join(root, 'android'))) {
 }
 fs.mkdirSync(base, { recursive: true });
 fs.copyFileSync(plugin, path.join(base, 'PawchiveDownloadsPlugin.java'));
-for (const name of ['TransferCore.java', 'DigestVerifier.java', 'PawchiveTransfersPlugin.java', 'UrlVault.java', 'GalleryPaths.java', 'PawchiveFileProvider.java', 'BackgroundJobPolicy.java', 'BackgroundTransferStore.java', 'BackgroundTransferJobService.java', 'PawchiveBackgroundPlugin.java']) {
+for (const name of ['TransferCore.java', 'DigestVerifier.java', 'PawchiveTransfersPlugin.java', 'UrlVault.java', 'GalleryPaths.java', 'PawchiveFileProvider.java', 'BackgroundJobPolicy.java', 'BackgroundProgressPolicy.java', 'BackgroundTransferStore.java', 'BackgroundTransferJobService.java', 'PawchiveBackgroundPlugin.java']) {
   fs.copyFileSync(path.join(root, 'native','android',name), path.join(base,name));
 }
 const java = path.join(base, 'MainActivity.java');

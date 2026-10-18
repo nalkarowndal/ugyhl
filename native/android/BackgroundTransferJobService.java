@@ -28,9 +28,9 @@ public final class BackgroundTransferJobService extends JobService {
             .setContentText(filename)
             .setOngoing(true)
             .setOnlyAlertOnce(true);
-        if (total > 0 && total <= Integer.MAX_VALUE) {
-            builder.setProgress(100, (int)Math.min(100, bytes * 100 / total), false);
-        } else builder.setProgress(100, 0, true);
+        int pct = BackgroundProgressPolicy.percent(bytes, total);
+        if (pct >= 0) builder.setProgress(100, pct, false);
+        else builder.setProgress(100, 0, true);
         return builder.build();
     }
     @Override public boolean onStartJob(JobParameters params) {
@@ -71,14 +71,33 @@ public final class BackgroundTransferJobService extends JobService {
                 TransferCore.download(entry.url, part, target, entry.etag, entry.speedKiB, stopped,
                     new TransferCore.Observer() {
                         long lastSaved;
+                        long lastNotified;
+                        private void reportProgress(long current, long total) {
+                            long now = android.os.SystemClock.elapsedRealtime();
+                            if (!BackgroundProgressPolicy.shouldUpdate(now, lastNotified, current, total)) return;
+                            lastNotified = now;
+                            try {
+                                setNotification(params, entry.jobId, notice(entry.filename, current, total),
+                                    JobService.JOB_END_NOTIFICATION_POLICY_REMOVE);
+                                updateTransferredNetworkBytes(params, Math.max(0, current), 0L);
+                            } catch (RuntimeException issue) {
+                                Log.w(TAG, "Progress notification not updated; job may have stopped", issue);
+                            }
+                        }
                         @Override public void onHeaders(String etag, long total) {
                             if (stopped.get()) return;
                             try { entry.etag = etag == null ? "" : etag; entry.total = total; store.update(entry); }
                             catch(Exception error) { throw new IllegalStateException("CHECKPOINT_WRITE_FAILED", error); }
+                            if (total > 0L) {
+                                try { updateEstimatedNetworkBytes(params, total, 0L); }
+                                catch (RuntimeException issue) { Log.w(TAG, "Cannot update estimated transfer size", issue); }
+                            }
+                            reportProgress(entry.bytes, total);
                         }
                         @Override public void onProgress(long bytes, long total) {
                             if (stopped.get()) return;
                             entry.bytes = bytes; entry.total = total;
+                            reportProgress(bytes, total);
                             if (System.currentTimeMillis() - lastSaved > 1500) {
                                 try { store.update(entry); lastSaved = System.currentTimeMillis(); }
                                 catch(Exception error) { throw new IllegalStateException("CHECKPOINT_WRITE_FAILED", error); }

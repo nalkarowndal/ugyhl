@@ -4,6 +4,7 @@ on:
     branches:
       - dev/m6-android-hardening
       - dev/m7-uidt
+      - dev/m8-progress-recovery
   workflow_dispatch:
 jobs:
   build-debug:
@@ -34,6 +35,6 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: pawchive-mobile-m7-debug
+          name: pawchive-mobile-m8-debug
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
