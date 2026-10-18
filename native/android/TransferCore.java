@@ -61,11 +61,21 @@ public final class TransferCore {
             throw new IOException("INVALID_PUBLIC_HTTPS_URL", error);
         }
     }
-    private static HttpURLConnection connect(URL initial, long offset, String etag) throws IOException {
+    interface ConnectionPolicy {
+        void verify(URL url) throws IOException;
+        HttpURLConnection open(URL url) throws IOException;
+    }
+    private static final ConnectionPolicy PUBLIC_HTTPS = new ConnectionPolicy() {
+        @Override public void verify(URL url) throws IOException { verifiedUrl(url.toString()); }
+        @Override public HttpURLConnection open(URL url) throws IOException {
+            return (HttpURLConnection) url.openConnection();
+        }
+    };
+    private static HttpURLConnection connect(URL initial, long offset, String etag, ConnectionPolicy policy) throws IOException {
         URL next=initial;
         for(int redirects=0; redirects<5; redirects++) {
-            verifiedUrl(next.toString());
-            HttpURLConnection c=(HttpURLConnection)next.openConnection();
+            policy.verify(next);
+            HttpURLConnection c=policy.open(next);
             c.setInstanceFollowRedirects(false);
             c.setConnectTimeout(12000); c.setReadTimeout(25000);
             c.setRequestProperty("User-Agent","PawchiveMobile/0.4");
@@ -76,7 +86,7 @@ public final class TransferCore {
                 String location=c.getHeaderField("Location");
                 if(location==null) {c.disconnect(); throw new IOException("REDIRECT_MISSING_LOCATION");}
                 URL redirected=new URL(next,location); c.disconnect();
-                verifiedUrl(redirected.toString()); next=redirected; continue;
+                policy.verify(redirected); next=redirected; continue;
             }
             return c;
         }
@@ -100,17 +110,31 @@ public final class TransferCore {
     }
     public static Result download(String rawUrl, File part, File finished, String priorEtag,
                                   int limitKiBPerSec, AtomicBoolean pause, Observer observer, String expectedSha256) throws IOException {
+        return downloadImpl(rawUrl, part, finished, priorEtag, limitKiBPerSec, pause, observer,
+            expectedSha256, PUBLIC_HTTPS);
+    }
+    /** Package-private test seam, not exposed by the Capacitor bridge. */
+    static Result downloadForQa(String rawUrl, File part, File finished, String etag,
+                                int speed, AtomicBoolean pause, Observer observer,
+                                String digest, ConnectionPolicy qaPolicy) throws IOException {
+        if (qaPolicy == null) throw new IOException("MISSING_TEST_TRANSPORT");
+        return downloadImpl(rawUrl, part, finished, etag, speed, pause, observer, digest, qaPolicy);
+    }
+    private static Result downloadImpl(String rawUrl, File part, File finished, String priorEtag,
+                                       int limitKiBPerSec, AtomicBoolean pause, Observer observer,
+                                       String expectedSha256, ConnectionPolicy policy) throws IOException {
         if (expectedSha256 != null && !expectedSha256.isEmpty() && !DigestVerifier.validSha256(expectedSha256))
             throw new IOException("INVALID_SHA256");
         if(limitKiBPerSec<0 || limitKiBPerSec>102400) throw new IOException("INVALID_BANDWIDTH_LIMIT");
         if(pause.get())throw new Paused();
-        URL url=verifiedUrl(rawUrl);
+        URL url = PUBLIC_HTTPS == policy ? verifiedUrl(rawUrl) : new URL(rawUrl);
+        policy.verify(url);
         File parent=part.getParentFile();
         if(parent==null || (!parent.exists()&&!parent.mkdirs()))throw new IOException("STORAGE_UNAVAILABLE");
         long offset=part.isFile()?part.length():0;
         // Never append to a partial file without a server-issued representation validator.
         if(offset>0 && (priorEtag==null || priorEtag.isEmpty())) offset=0;
-        HttpURLConnection conn=connect(url,offset,priorEtag);
+        HttpURLConnection conn=connect(url,offset,priorEtag,policy);
         int status=conn.getResponseCode();
         try {
             if(status!=200 && status!=206)throw new IOException("HTTP_"+status);
