@@ -3,14 +3,18 @@ package com.pawchive.mobile;
 import android.security.keystore.KeyGenParameterSpec;
 import android.security.keystore.KeyProperties;
 import android.util.Base64;
+
 import java.nio.charset.StandardCharsets;
 import java.security.KeyStore;
+import java.security.SecureRandom;
 import javax.crypto.Cipher;
 import javax.crypto.KeyGenerator;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
 
-/** Android Keystore-backed AES-GCM storage for M4 resume URLs. */
+/** Encrypts resume URLs with an app-bound, non-exportable Android Keystore AES key.
+ * The ciphertext alone is stored in app-private no-backup JSON. Keystore loss
+ * intentionally renders a resume URL unusable rather than silently downgrading. */
 public final class UrlVault {
     private static final String ALIAS = "pawchive_m5_transfer_urls";
     private static final String TRANSFORM = "AES/GCM/NoPadding";
@@ -22,8 +26,7 @@ public final class UrlVault {
         store.load(null);
         SecretKey existing = (SecretKey) store.getKey(ALIAS, null);
         if (existing != null) { key = existing; return; }
-        KeyGenerator generator = KeyGenerator.getInstance(
-            KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore");
+        KeyGenerator generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore");
         generator.init(new KeyGenParameterSpec.Builder(ALIAS,
             KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
             .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
@@ -43,16 +46,12 @@ public final class UrlVault {
         return PREFIX + Base64.encodeToString(combined, Base64.NO_WRAP);
     }
     public String open(String ciphertext) throws Exception {
-        if (ciphertext == null || !ciphertext.startsWith(PREFIX))
-            throw new SecurityException("INVALID_URL_CIPHERTEXT");
+        if (ciphertext == null || !ciphertext.startsWith(PREFIX)) throw new SecurityException("INVALID_URL_CIPHERTEXT");
         byte[] combined = Base64.decode(ciphertext.substring(PREFIX.length()), Base64.NO_WRAP);
-        if (combined.length < 30 || combined[0] != 12)
-            throw new SecurityException("INVALID_URL_CIPHERTEXT");
-        byte[] iv = new byte[12];
-        System.arraycopy(combined, 1, iv, 0, 12);
+        if (combined.length < 30 || combined[0] != 12) throw new SecurityException("INVALID_URL_CIPHERTEXT");
+        byte[] iv = new byte[12]; System.arraycopy(combined, 1, iv, 0, 12);
         Cipher cipher = Cipher.getInstance(TRANSFORM);
         cipher.init(Cipher.DECRYPT_MODE, key, new GCMParameterSpec(128, iv));
-        return new String(cipher.doFinal(combined, 13, combined.length - 13),
-            StandardCharsets.UTF_8);
+        return new String(cipher.doFinal(combined, 13, combined.length - 13), StandardCharsets.UTF_8);
     }
 }
