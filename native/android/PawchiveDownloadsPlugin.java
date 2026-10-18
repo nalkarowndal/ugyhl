@@ -44,13 +44,15 @@ public class PawchiveDownloadsPlugin extends Plugin {
     private static final String OLD_PREF = "pawchive_mobile_downloads_v1";
     private static final String OLD_KEY = "records";
     private static final String MIGRATED = "m3_sqlite_migrated";
+    private static final Object RETRY_LOCK = new Object();
     private LibraryDb db;
 
     static class LibraryDb extends SQLiteOpenHelper {
-        LibraryDb(Context ctx) { super(ctx, "pawchive_library.db", null, 3); }
+        LibraryDb(Context ctx) { super(ctx, "pawchive_library.db", null, 4); }
         @Override public void onCreate(SQLiteDatabase database) {
-            database.execSQL("CREATE TABLE downloads (id TEXT PRIMARY KEY NOT NULL, url TEXT NOT NULL, filename TEXT NOT NULL, created_at INTEGER NOT NULL, favorite INTEGER NOT NULL DEFAULT 0, source TEXT NOT NULL DEFAULT 'system', local_path TEXT NOT NULL DEFAULT '', url_sealed TEXT NOT NULL DEFAULT '')");
+            database.execSQL("CREATE TABLE downloads (id TEXT PRIMARY KEY NOT NULL, url TEXT NOT NULL, filename TEXT NOT NULL, created_at INTEGER NOT NULL, favorite INTEGER NOT NULL DEFAULT 0, source TEXT NOT NULL DEFAULT 'system', local_path TEXT NOT NULL DEFAULT '', url_sealed TEXT NOT NULL DEFAULT '', retry_of TEXT NOT NULL DEFAULT '')");
             database.execSQL("CREATE INDEX idx_downloads_created ON downloads(created_at DESC)");
+            database.execSQL("CREATE UNIQUE INDEX idx_downloads_retry_of ON downloads(retry_of) WHERE retry_of<>\'\'");
         }
         @Override public void onConfigure(SQLiteDatabase database) {
             super.onConfigure(database);
@@ -85,6 +87,10 @@ public class PawchiveDownloadsPlugin extends Plugin {
                     // SQLiteOpenHelper upgrades in a transaction: fail closed and roll back.
                     throw new IllegalStateException("URL_VAULT_MIGRATION_FAILED", error);
                 }
+            }
+            if (oldVersion < 4) {
+                database.execSQL("ALTER TABLE downloads ADD COLUMN retry_of TEXT NOT NULL DEFAULT ''");
+                database.execSQL("CREATE UNIQUE INDEX idx_downloads_retry_of ON downloads(retry_of) WHERE retry_of<>''");
             }
         }
     }
@@ -189,6 +195,10 @@ public class PawchiveDownloadsPlugin extends Plugin {
 
     /** Only the OS DownloadManager sees a plaintext URL. SQLite stores encrypted URL only. */
     private long enqueueTracked(String url, String name, boolean wifiOnly) throws Exception {
+        return enqueueTracked(url, name, wifiOnly, "");
+    }
+
+    private long enqueueTracked(String url, String name, boolean wifiOnly, String retryOf) throws Exception {
         if (!validHttps(url)) throw new IllegalArgumentException("HTTPS_URL_REQUIRED");
         migrateIfNeeded();
         String sealed = new UrlVault().seal(url);
@@ -211,6 +221,7 @@ public class PawchiveDownloadsPlugin extends Plugin {
             values.put("id", Long.toString(id));
             values.put("url", "");
             values.put("url_sealed", sealed);
+            values.put("retry_of", retryOf);
             values.put("filename", name);
             values.put("created_at", System.currentTimeMillis());
             db.getWritableDatabase().insertOrThrow("downloads", null, values);
@@ -235,6 +246,8 @@ public class PawchiveDownloadsPlugin extends Plugin {
 
     /** Retry by app-owned ID; never return stored URL across the JS bridge. */
     @PluginMethod public void retry(PluginCall call) {
+        // Serialize the check and enqueue. A unique SQLite index persists the invariant.
+        synchronized (RETRY_LOCK) {
         try {
             migrateIfNeeded();
             String id = call.getString("id", "");
@@ -247,6 +260,31 @@ public class PawchiveDownloadsPlugin extends Plugin {
                 sealed = row.getString(0); filename = row.getString(1);
             }
             if (sealed == null || sealed.isEmpty()) { call.reject("RETRY_URL_UNAVAILABLE"); return; }
+            // Return the same OS job after repeated taps or a process restart.
+            String previousRetry = null;
+            try (Cursor prior = db.getReadableDatabase().rawQuery(
+                "SELECT id FROM downloads WHERE retry_of=? AND source='system'", new String[]{id})) {
+                if (prior.moveToFirst()) previousRetry = prior.getString(0);
+            }
+            if (previousRetry != null) {
+                boolean jobExists = false;
+                try (Cursor current = manager().query(new DownloadManager.Query()
+                        .setFilterById(Long.parseLong(previousRetry)))) {
+                    jobExists = current != null && current.moveToFirst();
+                }
+                if (jobExists) {
+                    JSObject same = new JSObject();
+                    same.put("id", previousRetry);
+                    same.put("reused", true);
+                    call.resolve(same);
+                    return;
+                }
+                // A restored database may outlive DownloadManager state.
+                // Detach only the retry link, preserving the historical row.
+                android.content.ContentValues detached = new android.content.ContentValues();
+                detached.put("retry_of", "");
+                db.getWritableDatabase().update("downloads", detached, "id=?", new String[]{previousRetry});
+            }
             long previousId = Long.parseLong(id);
             try (Cursor status = manager().query(new DownloadManager.Query().setFilterById(previousId))) {
                 if (status != null && status.moveToFirst() &&
@@ -258,8 +296,11 @@ public class PawchiveDownloadsPlugin extends Plugin {
             String url = new UrlVault(false).open(sealed);
             if (!validHttps(url)) { call.reject("RETRY_URL_INVALID"); return; }
             boolean wifiOnly = Boolean.TRUE.equals(call.getBoolean("wifiOnly", false));
-            long nextId = enqueueTracked(url, safeName(filename), wifiOnly);
-            JSObject out = new JSObject(); out.put("id", Long.toString(nextId)); call.resolve(out);
+            long nextId = enqueueTracked(url, safeName(filename), wifiOnly, id);
+            JSObject out = new JSObject();
+            out.put("id", Long.toString(nextId));
+            out.put("reused", false);
+            call.resolve(out);
         } catch (UrlVault.MissingKeyException missing) {
             // Existing download metadata is preserved. A new URL must be entered explicitly.
             call.reject("RETRY_KEY_UNAVAILABLE");
@@ -269,6 +310,7 @@ public class PawchiveDownloadsPlugin extends Plugin {
             // Never log decrypted URLs or exception payloads from keystore/network.
             Log.e(TAG, "native retry failed");
             call.reject("RETRY_FAILED");
+        }
         }
     }
 
