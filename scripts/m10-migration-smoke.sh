@@ -59,7 +59,11 @@ source=sqlite3.connect(sys.argv[1]);dest=sqlite3.connect(sys.argv[2])
 source.backup(dest)
 dest.close();source.close()
 PY
-adb shell pm clear "$APP" | grep -q Success
+# pm clear is not a reliable simulation of Android Keystore alias deletion.
+# Reinstall the disposable emulator package so its original UID-bound key is removed,
+# then restore only the SQLite ciphertext WITHOUT any old key.
+adb uninstall "$APP" | grep -q Success
+adb install "$NEW_APK" | grep -q Success
 adb push "$OUT/stale-key.db" /data/local/tmp/m10-stale-key.db >/dev/null
 adb shell run-as "$APP" mkdir -p databases
 adb shell run-as "$APP" cp /data/local/tmp/m10-stale-key.db databases/pawchive_library.db
