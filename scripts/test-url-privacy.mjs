@@ -4,7 +4,8 @@ const java=fs.readFileSync('native/android/PawchiveDownloadsPlugin.java','utf8')
 const ts=fs.readFileSync('src/lib/native.ts','utf8');
 const app=fs.readFileSync('src/App.tsx','utf8');
 assert.match(java,/pawchive_library\.db", null, 3/);
-assert.match(java,/PRAGMA secure_delete=ON/);
+assert.match(java,/rawQuery\("PRAGMA secure_delete=ON"/);
+assert.ok(!java.includes('execSQL("PRAGMA secure_delete=ON"'), 'Android execSQL must not execute row-returning PRAGMA');
 assert.match(java,/ALTER TABLE downloads ADD COLUMN url_sealed/);
 assert.match(java,/database\.update\("downloads", values, "id=\?"/);
 assert.match(java,/vault\.seal\(row\[1\]\)/);
