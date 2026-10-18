@@ -1,7 +1,7 @@
-name: M9 Android emulator QA
+name: M9.1 Android UI diagnostics
 on:
   push:
-    branches: [dev/m9-transport-qa]
+    branches: [dev/m9-1-ui-qa]
   workflow_dispatch:
 jobs:
   emulator-smoke:
@@ -36,7 +36,7 @@ jobs:
           target: google_apis
           arch: x86_64
           profile: pixel_6
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim
+          emulator-options: -no-window -gpu swiftshader -no-snapshot -noaudio -no-boot-anim
           script: bash scripts/emulator-smoke.sh
       - name: Preserve screenshot and crash diagnostics
         if: always()

@@ -6,6 +6,7 @@ on:
       - dev/m7-uidt
       - dev/m8-progress-recovery
       - dev/m9-transport-qa
+      - dev/m9-1-ui-qa
   workflow_dispatch:
 jobs:
   build-debug:
@@ -36,6 +37,6 @@ jobs:
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: pawchive-mobile-m9-debug
+          name: pawchive-mobile-m9-1-debug
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
