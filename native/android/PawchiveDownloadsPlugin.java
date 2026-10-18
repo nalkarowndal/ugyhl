@@ -135,7 +135,9 @@ public class PawchiveDownloadsPlugin extends Plugin {
         database.beginTransaction();
         try {
             JSONArray old = new JSONArray(prefs.getString(OLD_KEY, "[]"));
-            UrlVault vault = new UrlVault();
+            // Do not generate a new key on an empty legacy migration: restored
+            // encrypted history must report a missing key, not silently replace it.
+            UrlVault vault = old.length() > 0 ? new UrlVault() : null;
             for (int i = 0; i < old.length(); i++) {
                 JSONObject record = old.optJSONObject(i);
                 if (record == null) continue;
@@ -253,11 +255,16 @@ public class PawchiveDownloadsPlugin extends Plugin {
                     call.reject("DOWNLOAD_NOT_RETRYABLE"); return;
                 }
             }
-            String url = new UrlVault().open(sealed);
+            String url = new UrlVault(false).open(sealed);
             if (!validHttps(url)) { call.reject("RETRY_URL_INVALID"); return; }
             boolean wifiOnly = Boolean.TRUE.equals(call.getBoolean("wifiOnly", false));
             long nextId = enqueueTracked(url, safeName(filename), wifiOnly);
             JSObject out = new JSObject(); out.put("id", Long.toString(nextId)); call.resolve(out);
+        } catch (UrlVault.MissingKeyException missing) {
+            // Existing download metadata is preserved. A new URL must be entered explicitly.
+            call.reject("RETRY_KEY_UNAVAILABLE");
+        } catch (javax.crypto.AEADBadTagException | SecurityException badCiphertext) {
+            call.reject("RETRY_CIPHERTEXT_UNREADABLE");
         } catch (Exception error) {
             // Never log decrypted URLs or exception payloads from keystore/network.
             Log.e(TAG, "native retry failed");

@@ -28,6 +28,7 @@ adb shell am start -W -n "$APP/.MainActivity" | tee "$OUT/launch.txt"
 sleep 10
 adb shell pidof "$APP" >/dev/null || { echo "FAIL: app did not survive migration"; exit 1; }
 node "$ROOT/scripts/inspect-webview.mjs"
+node "$ROOT/scripts/m10-2-native-retry.mjs" 424242 success
 cp "$ROOT/qa-output/webview-diagnostics.json" "$OUT/webview-diagnostics.json"
 cp "$ROOT/qa-output/webview-cdp.png" "$OUT/webview-cdp.png"
 python3 "$ROOT/scripts/check-screenshot.py" "$OUT/webview-cdp.png"
@@ -47,3 +48,40 @@ python3 "$ROOT/scripts/m10-verify-fixture.py" "$OUT"
 adb logcat -d -b crash > "$OUT/crash-buffer.log" || true
 if grep -E 'FATAL EXCEPTION|Fatal signal' "$OUT/crash-buffer.log"; then exit 1; fi
 echo "PASS: signed APK update, real Android database upgrade, encrypted history and WebView"
+
+python3 "$ROOT/scripts/m10-2-verify-retry.py" "$OUT" initial
+
+# Disposable emulator only: simulate restored encrypted DB with its original
+# Keystore key missing. Do not delete real user data or keys.
+python3 - "$OUT/upgraded.db" "$OUT/stale-key.db" <<'PY'
+import sqlite3,sys
+source=sqlite3.connect(sys.argv[1]);dest=sqlite3.connect(sys.argv[2])
+source.backup(dest)
+dest.close();source.close()
+PY
+# pm clear is not a reliable simulation of Android Keystore alias deletion.
+# Reinstall the disposable emulator package so its original UID-bound key is removed,
+# then restore only the SQLite ciphertext WITHOUT any old key.
+adb uninstall "$APP" | grep -q Success
+adb install "$NEW_APK" | grep -q Success
+adb push "$OUT/stale-key.db" /data/local/tmp/m10-stale-key.db >/dev/null
+adb shell run-as "$APP" mkdir -p databases
+adb shell run-as "$APP" cp /data/local/tmp/m10-stale-key.db databases/pawchive_library.db
+adb shell am start -W -n "$APP/.MainActivity" | tee "$OUT/relaunch-without-key.txt"
+sleep 8
+adb shell pidof "$APP" >/dev/null
+node "$ROOT/scripts/m10-2-native-retry.mjs" 424242 RETRY_KEY_UNAVAILABLE
+
+# Create a fresh Android Keystore alias without deleting the stale record.
+# A different key must never decrypt prior AES-GCM ciphertext.
+node "$ROOT/scripts/m10-2-native-retry.mjs" 424242 new-key
+node "$ROOT/scripts/m10-2-native-retry.mjs" 424242 RETRY_CIPHERTEXT_UNREADABLE
+adb shell am force-stop "$APP"
+adb exec-out run-as "$APP" cat databases/pawchive_library.db > "$OUT/after-key-loss.db"
+for ext in wal shm; do
+  adb exec-out run-as "$APP" sh -c "test -f databases/pawchive_library.db-$ext && cat databases/pawchive_library.db-$ext" > "$OUT/after-key-loss.db-$ext" || true
+  test -s "$OUT/after-key-loss.db-$ext" || rm -f "$OUT/after-key-loss.db-$ext"
+done
+python3 "$ROOT/scripts/m10-2-verify-retry.py" "$OUT" after-loss
+echo "PASS: valid retry, missing key and ciphertext mismatch all checked on Android."
+
