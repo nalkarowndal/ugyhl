@@ -1,10 +1,13 @@
-# Pawchive Mobile
+# Pawchive Mobile — M3 development
 
-Mobile reimplementation of [Pawchive Downloader v1.2.9](https://github.com/whyamihere773/Pawchive-Downloader/releases/tag/v1.2.9) for personal, noncommercial research.
+Unofficial personal/noncommercial Android adaptation of [Pawchive Downloader v1.2.9](https://github.com/whyamihere773/Pawchive-Downloader/releases/tag/v1.2.9). The original has a **custom source-available** license, not MIT; credit the author and obtain prior written permission before commercial use. [Original license](https://github.com/whyamihere773/Pawchive-Downloader/blob/v1.2.9/LICENSE).
 
-- React + TypeScript UI, Capacitor bridge, Android native DownloadManager.
-- M2 development: URL parsing, public creator/post APIs, attachment selection.
-- **Upstream attribution / custom license:** https://github.com/whyamihere773/Pawchive-Downloader/blob/v1.2.9/LICENSE
-- Not affiliated with the original project or Pawchive service. No copyright-infringing use or access-control bypass is authorized.
+## Status
+- Intended architecture: **React + TypeScript + Capacitor + Android DownloadManager**.
+- M1: responsive UI and basic native downloads.
+- M2: creator/post URL parser, public API integration, attachment selection.
+- M3: native SQLite download history, local gallery, filtered/sorted search, thumbnails, favorites, open/delete files.
 
-The complete M2 working snapshot is provided as `Pawchive-Mobile-M2-source.zip` in the linked development conversation. Do not assume an APK is available until Android device QA succeeds.
+**The repository has project documentation but is not yet a complete runnable source tree.** The latest full development snapshot is supplied in the associated ChatGPT conversation as `Pawchive-Mobile-M3-source.zip`. Please use that snapshot until the files are mirrored here.
+
+See [M3 progress and checks](docs/M3_PROGRESS.md). Android APK has **not** been compiled/tested yet; do not interpret source checks as proof of production readiness. This is not officially affiliated with Pawchive.
