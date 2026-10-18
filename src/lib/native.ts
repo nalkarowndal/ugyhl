@@ -15,6 +15,7 @@ export interface NativeDownloadRecord {
 interface PawchiveDownloadsPlugin {
   enqueue(options: { url: string; filename: string; wifiOnly: boolean }): Promise<{ id: string }>;
   list(): Promise<{ downloads: NativeDownloadRecord[] }>;
+  retry(options: { id: string; wifiOnly: boolean }): Promise<{ id: string }>;
   cancel(options: { id: string }): Promise<{ success: boolean }>;
   favorite(options: { id: string; favorite: boolean }): Promise<{ success: boolean }>;
   open(options: { id: string }): Promise<{ success: boolean }>;
@@ -30,6 +31,7 @@ export async function getDownloads(): Promise<DownloadItem[]> {
   const response = await native.list();
   return response.downloads.map((task): DownloadItem => ({
     ...task,
+    url: '', // The bridge never exposes persisted signed URLs to UI state.
     status: ['pending','running','paused','success','failed','cancelled'].includes(task.status)
       ? task.status as DownloadItem['status'] : 'failed',
   }));
@@ -37,6 +39,11 @@ export async function getDownloads(): Promise<DownloadItem[]> {
 export async function enqueueDownload(url: string, filename: string, wifiOnly: boolean): Promise<string> {
   if (!runningOnAndroid()) throw new Error('실제 다운로드는 Android APK에서만 지원합니다. 브라우저는 UI 검수용입니다.');
   const result = await native.enqueue({ url, filename, wifiOnly });
+  return result.id;
+}
+export async function retryDownload(id: string, wifiOnly: boolean): Promise<string> {
+  if (!runningOnAndroid()) throw new Error('Android 앱에서만 다운로드 재시도가 가능합니다.');
+  const result = await native.retry({ id, wifiOnly });
   return result.id;
 }
 export async function cancelDownload(id: string): Promise<boolean> {

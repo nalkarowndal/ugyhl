@@ -18,5 +18,6 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: node scripts/verify-source.cjs
+      - run: npm run test:url-privacy
       - run: node scripts/test-install-native.mjs
       - run: bash scripts/test-transfer-core.sh
