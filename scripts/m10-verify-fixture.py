@@ -17,6 +17,7 @@ with sqlite3.connect(out/"upgraded.db") as db:
         r=rows[item];assert r[1]=="" and r[3]==name and r[4]==fave,r
         if item.startswith("m4:"):assert r[2]==""
         else:assert r[2].startswith("v1:") and len(r[2])>50
+    assert "m4:00000000-0000-4000-8000-000000000003" not in rows, "Deleted gallery file remains indexed"
     assert all("M10_FAKE_" not in str(v) for r in rows.values() for v in r)
 prefs=(out/"upgraded-prefs.xml").read_text("utf-8")
 assert 'name="records"' not in prefs
