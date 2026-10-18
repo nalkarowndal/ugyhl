@@ -54,7 +54,11 @@ public class PawchiveDownloadsPlugin extends Plugin {
         }
         @Override public void onConfigure(SQLiteDatabase database) {
             super.onConfigure(database);
-            database.execSQL("PRAGMA secure_delete=ON");
+            // PRAGMA secure_delete=ON returns a row. Android rejects it in execSQL().
+            try (Cursor setting = database.rawQuery("PRAGMA secure_delete=ON", null)) {
+                if (!setting.moveToFirst() || setting.getInt(0) != 1)
+                    throw new IllegalStateException("SQLITE_SECURE_DELETE_UNAVAILABLE");
+            }
         }
         @Override public void onUpgrade(SQLiteDatabase database, int oldVersion, int newVersion) {
             if (oldVersion < 2) {
