@@ -1,0 +1,80 @@
+Custom Source-Available License
+Copyright (c) 2026 Pawchive Downloader Contributors
+
+---
+
+## Terms & Conditions
+
+### 1. Permitted Use
+You are free to:
+- Use this software for **personal, non-commercial purposes**
+- Study and learn from the source code
+- Fork and modify the code for **private, non-commercial use**
+
+### 2. Restrictions
+
+**Commercial Use Prohibited Without Permission**
+You may NOT sell, license, sublicense, or otherwise commercialize this software
+or any derivative work based on it without prior written permission from the
+original author. This includes but is not limited to: paid downloads, bundling
+in paid products, SaaS offerings, or monetized distributions.
+
+**Attribution Required for Redistribution**
+If you modify this software and publish or distribute your version publicly,
+you MUST:
+- Clearly credit the original project and author in your README, About page,
+  or equivalent prominent location.
+- Include a link to this original repository.
+- Indicate what changes were made.
+- Retain this license file in your distribution.
+
+Suggested attribution format:
+> Based on Pawchive Downloader (https://github.com/whyamihere773/Pawchive-Downloader)
+
+**No Misrepresentation**
+You may not claim original authorship of this project or present derivative
+works in a way that misrepresents their origin.
+
+### 3. Comprehensive Disclaimer of Warranty & Limitation of Liability
+
+**3.1. "AS-IS" AND WITHOUT WARRANTY**
+THE SOFTWARE IS PROVIDED "AS IS" AND "AS AVAILABLE", WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS, IMPLIED, STATUTORY, OR OTHERWISE, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE, TITLE, NON-INFRINGEMENT, ACCURACY, SECURITY, FREEDOM FROM BUGS, UNINTERRUPTED OPERATION, OR COMPLIANCE WITH APPLICABLE LAWS. THE ENTIRE RISK AS TO THE QUALITY, PERFORMANCE, AND USE OF THE SOFTWARE IS BORNE SOLELY BY THE USER.
+
+**3.2. COMPLETE EXCLUSION OF LIABILITY**
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT AND UNDER NO LEGAL OR EQUITABLE THEORY—WHETHER IN CONTRACT, TORT (INCLUDING NEGLIGENCE), STRICT LIABILITY, STATUTORY DUTY, INDEMNITY, OR OTHERWISE—SHALL THE AUTHOR, MAINTAINER, CONTRIBUTORS, OR COPYRIGHT HOLDERS BE LIABLE TO ANY USER OR THIRD PARTY FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, PUNITIVE, CONSEQUENTIAL, OR COMPENSATORY DAMAGES OF ANY CHARACTER WHATSOEVER. THIS INCLUDES, WITHOUT LIMITATION, DAMAGES FOR LOSS OF DATA, LOSS OF PROFITS, LOSS OF GOODWILL, WORK STOPPAGE, COMPUTER FAILURE OR MALFUNCTION, CORRUPTION OF HARDWARE OR STORAGE MEDIA, ACCOUNT SUSPENSION OR TERMINATION, NETWORK SERVICE DISRUPTIONS, OR ANY AND ALL OTHER COMMERCIAL DAMAGES OR LOSSES, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGES.
+
+**3.3. THIRD-PARTY CONTENT & INTELLECTUAL PROPERTY DISCLAIMER**
+THE SOFTWARE IS SOLELY A CLIENT-SIDE NETWORK UTILITY. THE AUTHOR DOES NOT HOST, STORE, CACHE, DISTRIBUTE, CONTROL, MONITOR, OR OWN ANY THIRD-PARTY CONTENT, MEDIA, IMAGES, TEXT, OR DATA ACCESSED OR DOWNLOADED USING THIS SOFTWARE. THE AUTHOR IS NOT AFFILIATED WITH, ENDORSED BY, ASSOCIATED WITH, OR SPONSORED BY PAWCHIVE, KEMONO, PATREON, DISCORD, FANBOX, FANTIA, OR ANY THIRD-PARTY PLATFORM, HOST, CREATOR, OR SERVICE PROVIDER. 
+
+THE AUTHOR ASSUMES NO LIABILITY OR LEGAL RESPONSIBILITY FOR ANY COPYRIGHT INFRINGEMENT, INTELLECTUAL PROPERTY DISPUTES, DIGITAL MILLENNIUM COPYRIGHT ACT (DMCA) CLAIMS, OR BREACHES OF THIRD-PARTY TERMS OF SERVICE RESULTING FROM THE USE OR MISUSE OF THIS SOFTWARE BY ANY INDIVIDUAL.
+
+**3.4. USER RESPONSIBILITY & INDEMNIFICATION**
+BY DOWNLOADING, COMPILING, OR USING THIS SOFTWARE, YOU EXPRESSLY AGREE THAT:
+- YOU ARE SOLELY RESPONSIBLE FOR COMPLYING WITH ALL APPLICABLE LOCAL, NATIONAL, AND INTERNATIONAL LAWS, REGULATIONS, AND THIRD-PARTY TERMS OF SERVICE GOVERNING YOUR USE OF NETWORKS AND DIGITAL CONTENT.
+- THIS TOOL IS PROVIDED STRICTLY FOR PERSONAL BACKUP, ARCHIVAL, AND EDUCATIONAL PURPOSES ON CONTENT YOU HAVE A LAWFUL RIGHT TO ACCESS.
+- YOU AGREE TO DEFEND, INDEMNIFY, AND HOLD HARMLESS THE AUTHOR, MAINTAINER, AND CONTRIBUTORS FROM AND AGAINST ANY AND ALL CLAIMS, LIABILITIES, LOSSES, DAMAGES, JUDGMENTS, AWARDS, PENALTIES, COSTS, AND EXPENSES (INCLUDING REASONABLE LEGAL FEES) ARISING OUT OF OR IN CONNECTION WITH YOUR ACCESS, USE, MISUSE, OR DISTRIBUTION OF THIS SOFTWARE, OR YOUR VIOLATION OF ANY THIRD-PARTY RIGHTS OR APPLICABLE LAWS.
+
+**3.5. NO DUTY OF CARE OR ONGOING SUPPORT**
+THE AUTHOR HAS NO FIDUCIARY DUTY, DUTY OF CARE, CONTRACTUAL COMMITMENT, OR SERVICE LEVEL AGREEMENT (SLA) TOWARD ANY USER. THE AUTHOR RESERVES THE RIGHT TO SUSPEND, MODIFY, OR CEASE DEVELOPMENT OF THE SOFTWARE AT ANY TIME WITHOUT NOTICE OR LIABILITY.
+
+---
+
+## Inspiration & Attribution
+
+This project was heavily inspired by the work of **Yuvi9587** and their
+[Kemono Downloader](https://github.com/Yuvi9587/Kemono-Downloader) project.
+While this codebase was rewritten entirely from scratch with a different
+architecture, UI framework, and heavily modified feature set, it would not exist without that
+original work serving as a foundation and reference point. Credit and sincere
+appreciation go to Yuvi9587 for their contribution to the community.
+
+---
+
+## Third-Party Components
+
+This project bundles a pre-compiled copy of **yt-dlp** in the `dependencies/`
+folder to assist with downloading embedded streaming media (Vimeo, YouTube,
+Streamable, RedGifs, etc.). yt-dlp is an open-source project released into the
+public domain under the Unlicense.
+
+- yt-dlp repository: https://github.com/yt-dlp/yt-dlp

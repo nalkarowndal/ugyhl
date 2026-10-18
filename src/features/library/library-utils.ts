@@ -1,6 +1,7 @@
 import type { DownloadItem } from '../../lib/types';
 export type LibraryKind = 'all' | 'image' | 'video' | 'archive' | 'audio' | 'other';
 export type LibrarySort = 'newest' | 'oldest' | 'name' | 'size';
+
 export function fileKind(filename: string): Exclude<LibraryKind,'all'> {
   const ext = (filename.split('.').pop() || '').toLowerCase();
   if (['jpg','jpeg','png','webp','gif','avif','heic','bmp','tif','tiff'].includes(ext)) return 'image';

@@ -1,0 +1,11 @@
+node_modules/
+dist/
+android/
+*.apk
+*.aab
+.idea/
+.gradle/
+*.log
+.DS_Store
+.env*
+!.env.example
