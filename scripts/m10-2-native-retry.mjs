@@ -3,7 +3,7 @@
 import {execFileSync} from 'node:child_process';
 import {writeFileSync,mkdirSync} from 'node:fs';
 const id=process.argv[2], mode=process.argv[3];
-if(!/^[0-9]+$/.test(id)||!['success','new-key','RETRY_CIPHERTEXT_UNREADABLE','RETRY_KEY_UNAVAILABLE'].includes(mode))throw Error('Invalid args');
+if(!/^[0-9]+$/.test(id)||!['success','new-key','duplicate','RETRY_CIPHERTEXT_UNREADABLE','RETRY_KEY_UNAVAILABLE'].includes(mode))throw Error('Invalid args');
 const adb=(...args)=>execFileSync('adb',args,{encoding:'utf8',timeout:15000}).trim();
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 let target;
@@ -27,7 +27,7 @@ await Promise.race([
 const action=mode==='new-key'
   ? 'p.enqueue({url:"https://example.invalid/m10-key-probe.bin",filename:"key-probe.bin",wifiOnly:false})'
   : 'p.retry({id:"'+id+'",wifiOnly:false})';
-const expr='(async()=>{try{const p=window.Capacitor?.Plugins?.PawchiveDownloads;if(!p) return {ok:false,code:"PLUGIN_UNAVAILABLE"};const x=await '+action+';return {ok:true,id:String(x.id)};}catch(e){return {ok:false,code:String(e?.message||e).slice(0,90)};}})()';
+const expr='(async()=>{try{const p=window.Capacitor?.Plugins?.PawchiveDownloads;if(!p) return {ok:false,code:"PLUGIN_UNAVAILABLE"};const x=await '+action+';return {ok:true,id:String(x.id),reused:x.reused===true};}catch(e){return {ok:false,code:String(e?.message||e).slice(0,90)};}})()';
 const reply=new Promise((resolve,reject)=>{
  const timeout=setTimeout(()=>reject(Error('CDP native reply timeout')),24000);
  ws.addEventListener('message',function cb(ev){
@@ -40,11 +40,15 @@ ws.send(JSON.stringify({id:10,method:'Runtime.evaluate',params:{expression:expr,
 const data=(await reply).result?.result?.value;
 ws.close();
 if(!data||typeof data.ok!=='boolean')throw Error('Native plugin result not available');
-const out={ok:data.ok,mode:mode,code:data.ok?'SUCCESS':data.code};
+const out={ok:data.ok,mode:mode,code:data.ok?'SUCCESS':data.code,reused:data.reused===true};
 if(data.ok && !/^[0-9]+$/.test(data.id||''))throw Error('Native enqueue ID not numeric');
 if(data.ok)out.id=data.id;
 mkdirSync('qa-output/m10-migration',{recursive:true});
 writeFileSync('qa-output/m10-migration/native-retry-'+mode+'.json',JSON.stringify(out,null,2)+'\n');
-if(mode==='success'||mode==='new-key'){if(!data.ok)throw Error('Expected enqueue success; got '+data.code);}
+if(mode==='success'||mode==='new-key'||mode==='duplicate'){
+ if(!data.ok)throw Error('Expected enqueue success; got '+data.code);
+ if(mode==='duplicate' && data.reused!==true)throw Error('Duplicate request was not deduplicated');
+ if(mode==='success' && data.reused===true)throw Error('First retry unexpectedly reused an OS job');
+}
 else if(data.ok||data.code!==mode)throw Error('Expected '+mode+', received '+(data.ok?'success':data.code));
 console.log('PASS: native retry result '+out.code+'; no original URL exposed');

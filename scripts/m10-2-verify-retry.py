@@ -7,9 +7,9 @@ assert mode in ("initial","after-loss")
 dbfile=out/("upgraded.db" if mode=="initial" else "after-key-loss.db")
 with sqlite3.connect(dbfile) as db:
     assert db.execute("PRAGMA integrity_check").fetchone()[0]=="ok"
-    assert db.execute("PRAGMA user_version").fetchone()[0]==3
+    assert db.execute("PRAGMA user_version").fetchone()[0]==4
     rows={r[0]:r for r in db.execute(
-        "SELECT id,url,url_sealed,filename,favorite FROM downloads"
+        "SELECT id,url,url_sealed,filename,favorite,retry_of FROM downloads"
     )}
     original=rows["424242"]
     assert original[1]=="" and original[2].startswith("v1:")
@@ -20,6 +20,10 @@ with sqlite3.connect(dbfile) as db:
         assert new_id!="424242" and new_id in rows,"Native retry did not persist a new history record"
         new=rows[new_id]
         assert new[1]=="" and new[2].startswith("v1:") and new[3]=="preserved.png"
+        assert new[5]=="424242","New retry must link to parent ID"
+        duplicate=json.loads((out/"native-retry-duplicate.json").read_text())
+        assert duplicate["id"]==new_id and duplicate["reused"] is True
+        assert sum(1 for r in rows.values() if r[5]=="424242")==1
         assert len(rows)>=4
         print("PASS: Android native retry created a new DownloadManager record with sealed URL.")
     else:

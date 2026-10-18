@@ -29,6 +29,10 @@ sleep 10
 adb shell pidof "$APP" >/dev/null || { echo "FAIL: app did not survive migration"; exit 1; }
 node "$ROOT/scripts/inspect-webview.mjs"
 node "$ROOT/scripts/m10-2-native-retry.mjs" 424242 success
+adb shell am force-stop "$APP"
+adb shell am start -W -n "$APP/.MainActivity" >/dev/null
+sleep 4
+node "$ROOT/scripts/m10-2-native-retry.mjs" 424242 duplicate
 cp "$ROOT/qa-output/webview-diagnostics.json" "$OUT/webview-diagnostics.json"
 cp "$ROOT/qa-output/webview-cdp.png" "$OUT/webview-cdp.png"
 python3 "$ROOT/scripts/check-screenshot.py" "$OUT/webview-cdp.png"

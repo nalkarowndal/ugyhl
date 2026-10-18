@@ -81,7 +81,7 @@ export default function App(){
   const retry=async(task:DownloadItem)=>{
     if(retryingId!==null)return;
     setRetryingId(task.id);
-    try{await retryDownload(task.id,settings.wifiOnly);await refresh();setNotice('다운로드 재시도 작업을 등록했습니다.');}
+    try{const result=await retryDownload(task.id,settings.wifiOnly);await refresh();setNotice(result.reused?'기존 재시도 작업을 표시합니다.':'다운로드 재시도 작업을 등록했습니다.');}
     catch(e){
       const code=String(e);
       if(code.includes('RETRY_KEY_UNAVAILABLE')||code.includes('RETRY_CIPHERTEXT_UNREADABLE')){
