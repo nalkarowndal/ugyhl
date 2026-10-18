@@ -1,13 +1,14 @@
 {
   "name": "pawchive-mobile",
   "private": true,
-  "version": "0.8.0",
+  "version": "0.9.0",
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "tsc -b && vite build",
     "preview": "vite preview --host 0.0.0.0",
     "test": "vitest run",
+    "test:transport": "bash scripts/test-transfer-core.sh",
     "android:init": "npm run build && npx cap add android && node scripts/install-native-plugin.mjs && npx cap sync android",
     "android:sync": "npm run build && node scripts/install-native-plugin.mjs && npx cap sync android",
     "android:open": "npx cap open android",
