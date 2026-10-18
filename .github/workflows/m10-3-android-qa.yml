@@ -1,7 +1,7 @@
 name: M10.3 Android retry and Keystore recovery QA
 on:
   push:
-    branches: [dev/m10-3-retry-recovery]
+    branches: [dev/m10-3-retry-idempotency]
   workflow_dispatch:
 jobs:
   android-upgrade:
