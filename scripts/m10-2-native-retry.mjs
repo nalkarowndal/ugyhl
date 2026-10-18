@@ -3,7 +3,7 @@
 import {execFileSync} from 'node:child_process';
 import {writeFileSync,mkdirSync} from 'node:fs';
 const id=process.argv[2], mode=process.argv[3];
-if(!/^[0-9]+$/.test(id)||!['success','RETRY_CIPHERTEXT_UNREADABLE','RETRY_KEY_UNAVAILABLE'].includes(mode))throw Error('Invalid args');
+if(!/^[0-9]+$/.test(id)||!['success','new-key','RETRY_CIPHERTEXT_UNREADABLE','RETRY_KEY_UNAVAILABLE'].includes(mode))throw Error('Invalid args');
 const adb=(...args)=>execFileSync('adb',args,{encoding:'utf8',timeout:15000}).trim();
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
 let target;
@@ -24,7 +24,10 @@ await Promise.race([
  new Promise((yes,no)=>{ws.addEventListener('open',yes,{once:true});ws.addEventListener('error',no,{once:true})}),
  sleep(7000).then(()=>{throw Error('CDP WebSocket timeout')})
 ]);
-const expr='(async()=>{try{const p=window.Capacitor?.Plugins?.PawchiveDownloads;if(!p) return {ok:false,code:"PLUGIN_UNAVAILABLE"};const x=await p.retry({id:"'+id+'",wifiOnly:false});return {ok:true,id:String(x.id)};}catch(e){return {ok:false,code:String(e?.message||e).slice(0,90)};}})()';
+const action=mode==='new-key'
+  ? 'p.enqueue({url:"https://example.invalid/m10-key-probe.bin",filename:"key-probe.bin",wifiOnly:false})'
+  : 'p.retry({id:"'+id+'",wifiOnly:false})';
+const expr='(async()=>{try{const p=window.Capacitor?.Plugins?.PawchiveDownloads;if(!p) return {ok:false,code:"PLUGIN_UNAVAILABLE"};const x=await '+action+';return {ok:true,id:String(x.id)};}catch(e){return {ok:false,code:String(e?.message||e).slice(0,90)};}})()';
 const reply=new Promise((resolve,reject)=>{
  const timeout=setTimeout(()=>reject(Error('CDP native reply timeout')),24000);
  ws.addEventListener('message',function cb(ev){
@@ -42,6 +45,6 @@ if(data.ok && !/^[0-9]+$/.test(data.id||''))throw Error('Native enqueue ID not n
 if(data.ok)out.id=data.id;
 mkdirSync('qa-output/m10-migration',{recursive:true});
 writeFileSync('qa-output/m10-migration/native-retry-'+mode+'.json',JSON.stringify(out,null,2)+'\n');
-if(mode==='success'){if(!data.ok)throw Error('Expected retry success; got '+data.code);}
+if(mode==='success'||mode==='new-key'){if(!data.ok)throw Error('Expected enqueue success; got '+data.code);}
 else if(data.ok||data.code!==mode)throw Error('Expected '+mode+', received '+(data.ok?'success':data.code));
 console.log('PASS: native retry result '+out.code+'; no original URL exposed');
