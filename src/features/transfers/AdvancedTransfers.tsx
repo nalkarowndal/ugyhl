@@ -15,6 +15,7 @@ export function AdvancedTransfers() {
   const android=runningOnAndroid();
   const [url,setUrl]=useState('');
   const [limit,setLimit]=useState(0);
+  const [sha256,setSha256]=useState('');
   const [items,setItems]=useState<TransferRecord[]>([]);
   const [busy,setBusy]=useState(false);
   const [message,setMessage]=useState('');
@@ -30,11 +31,13 @@ export function AdvancedTransfers() {
   async function start(){
     const safe=validateFileUrl(url);
     if(!safe.valid){setMessage(safe.message);return;}
+    const sha = sha256.trim();
+    if (sha && !/^[a-fA-F0-9]{64}$/.test(sha)) { setMessage('SHA-256 해시는 16진수 64자리여야 합니다.'); return; }
     if(!android){setMessage('실제 전송 기능은 Android APK에서만 사용할 수 있습니다.');return;}
     setBusy(true);
     try{
-      await plugin.start({url:safe.url,filename:safeFilenameFromUrl(safe.url),speedKiB:limit});
-      setUrl('');setMessage('고급 다운로드를 등록했습니다.');await refresh();
+      await plugin.start({url:safe.url,filename:safeFilenameFromUrl(safe.url),speedKiB:limit,sha256:sha});
+      setUrl('');setSha256('');setMessage('고급 다운로드를 등록했습니다.');await refresh();
     }catch(error){setMessage('전송 등록 실패: '+String(error))}
     finally{setBusy(false)}
   }
@@ -43,10 +46,11 @@ export function AdvancedTransfers() {
     catch(error){setMessage('전송 제어 실패: '+String(error))}
   }
   return <section className="surface-card advanced-transfers" aria-label="M4 이어받기 엔진">
-    <div className="advanced-head"><div><p className="eyebrow">M5 · SECURE EXPERIMENTAL</p><h2>고급 다운로드 엔진</h2></div><span className="support-chip"><Gauge size={15}/> Range 이어받기</span></div>
-    <p className="advanced-description">일시정지·재개와 작업별 속도 제한을 지원합니다. 완료 파일은 보관함에 등록됩니다. URL 기록은 Android Keystore로 암호화하지만 앱 종료 후 지속 실행은 보장하지 않습니다. 백그라운드 장시간 다운로드는 위의 Android 기본 다운로드를 사용하세요.</p>
+    <div className="advanced-head"><div><p className="eyebrow">M6 · SECURE EXPERIMENTAL</p><h2>고급 다운로드 엔진</h2></div><span className="support-chip"><Gauge size={15}/> Range 이어받기</span></div>
+    <p className="advanced-description">일시정지·재개와 작업별 속도 제한을 지원합니다. 선택적으로 지정한 원본 SHA-256과 최종 파일이 일치해야 완료 처리합니다. 완료 파일은 보관함에 등록됩니다. URL 기록은 Android Keystore로 암호화하지만 앱 종료 후 지속 실행은 보장하지 않습니다. 백그라운드 장시간 다운로드는 위의 Android 기본 다운로드를 사용하세요.</p>
     <div className="advanced-form"><input type="url" value={url} onChange={e=>setUrl(e.target.value)} placeholder="https://.../file.zip" aria-label="고급 다운로드 HTTPS URL"/>
       <label>속도 제한(KiB/s, 0=무제한)<input type="number" min="0" max="102400" step="128" value={limit} onChange={e=>setLimit(Math.min(102400,Math.max(0,Number(e.target.value)||0)))}/></label>
+      <label className="hash-field">선택: 신뢰할 수 있는 원본 SHA-256<input type="text" autoComplete="off" spellCheck={false} value={sha256} onChange={e=>setSha256(e.target.value.slice(0,64))} placeholder="64자리 SHA-256 · 입력하지 않아도 됩니다" aria-label="원본 파일 SHA-256 해시" /></label>
       <button className="primary-button" disabled={busy || !android} onClick={()=>void start()}><ArrowDownToLine size={16}/> 전송 시작</button></div>
     {!android&&<p className="advanced-warning"><AlertTriangle size={16}/> 브라우저에서는 작업이 실행되지 않습니다. 실제 전송·이어받기는 Android 앱에서만 가능합니다.</p>}
     <div className="advanced-list" aria-live="polite">{items.length===0&&<p className="advanced-empty">고급 전송 기록이 없습니다.</p>}

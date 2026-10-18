@@ -1,4 +1,4 @@
-# Pawchive Mobile — M5 (React + Capacitor + Android)
+# Pawchive Mobile — M6 (React + Capacitor + Android)
 
 An **unofficial, personal and non-commercial** mobile adaptation inspired by [Pawchive Downloader v1.2.9](https://github.com/whyamihere773/Pawchive-Downloader/releases/tag/v1.2.9). The original project has a custom source-available license, **not** an MIT/open redistribution license. See `UPSTREAM_LICENSE.txt`. Maintain attribution; obtain written permission before commercial distribution.
 
@@ -10,7 +10,10 @@ An **unofficial, personal and non-commercial** mobile adaptation inspired by [Pa
 | M2 | Pawchive/Cum.st creator & single-post parsing, API lookup, attachment selection | Smoke tests, not live API tested |
 | M3 | Android SQLite library/history, image thumbnails, favorites, safe delete/open | Syntax-only, no device QA |
 | M4-alpha | In-process single-stream Range+ETag resume, pause, limited KiB/s throttle | Pure Java unit smoke tests |
-| M5 | Gallery indexing for M4, URL encryption/migration via Android Keystore, FileProvider, SQLite v2, safer resume | Pure unit checks, no APK yet |
+| M5 | Gallery indexing for M4, URL encryption/migration via Android Keystore, FileProvider, SQLite v2, safer resume | Pure tests passed; APK compiled in M6 |
+| M6 | Complete GitHub source mirror, CI React/Android builds, optional trusted SHA-256 verification in advanced downloader | Source unit tests passed; M6 checksum APK needs CI build + physical device QA |
+
+**GitHub Actions has produced a debug APK from the M5-source M6 branch. This project is still untested on an actual phone.**
 
 **The app is not at upstream feature parity.** Telegram, cloud downloaders, yt-dlp, AI matching, archive extraction, automatic watchlist sync, multipart downloads, global bandwidth throttle and 24/7 Android background transfers remain unimplemented.
 
@@ -25,6 +28,7 @@ An **unofficial, personal and non-commercial** mobile adaptation inspired by [Pa
 - `native/android/GalleryPaths.java` — pure Java canonical-path guard for M4 gallery
 - `native/android/PawchiveFileProvider.java` and `native/android/res/xml/pawchive_file_paths.xml` — scoped file-view sharing
 - `scripts/install-native-plugin.mjs` — repeatable Android source + manifest installer
+- `native/android/DigestVerifier.java` — optional trusted SHA-256 verification of the completed `.part` file
 - `docs/M5_QA.md` — QA and gaps
 
 ## Installation / build (requires outside this environment)
@@ -68,7 +72,7 @@ node scripts/verify-source.cjs
 node scripts/test-install-native.mjs
 ```
 
-These checks are not proof of Android compilation, runtime correctness or security. See [M5 QA](docs/M5_QA.md).
+These checks are not proof of Android compilation, runtime correctness or security. See [M6 QA](docs/M6_QA.md), including the first successful Android debug CI build and remaining physical-device tests.
 
 ## Attribution
 

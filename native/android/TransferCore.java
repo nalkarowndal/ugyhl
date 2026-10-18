@@ -96,6 +96,12 @@ public final class TransferCore {
     /** Caller owns the persistent .part file and etag checkpoint. */
     public static Result download(String rawUrl, File part, File finished, String priorEtag,
                                   int limitKiBPerSec, AtomicBoolean pause, Observer observer) throws IOException {
+        return download(rawUrl, part, finished, priorEtag, limitKiBPerSec, pause, observer, "");
+    }
+    public static Result download(String rawUrl, File part, File finished, String priorEtag,
+                                  int limitKiBPerSec, AtomicBoolean pause, Observer observer, String expectedSha256) throws IOException {
+        if (expectedSha256 != null && !expectedSha256.isEmpty() && !DigestVerifier.validSha256(expectedSha256))
+            throw new IOException("INVALID_SHA256");
         if(limitKiBPerSec<0 || limitKiBPerSec>102400) throw new IOException("INVALID_BANDWIDTH_LIMIT");
         if(pause.get())throw new Paused();
         URL url=verifiedUrl(rawUrl);
@@ -149,6 +155,9 @@ public final class TransferCore {
                 out.getFD().sync();
             }
             if(total>=0&&transferred!=total)throw new IOException("TRUNCATED_DOWNLOAD");
+            if(pause.get())throw new Paused();
+            // Fail closed: no gallery publication or final rename on a mismatched trusted digest.
+            DigestVerifier.verify(part, expectedSha256);
             if(pause.get())throw new Paused();
             try { Files.move(part.toPath(),finished.toPath(),StandardCopyOption.ATOMIC_MOVE); }
             catch(java.nio.file.AtomicMoveNotSupportedException error) { Files.move(part.toPath(),finished.toPath()); }

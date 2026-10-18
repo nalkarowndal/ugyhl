@@ -38,7 +38,7 @@ public final class PawchiveTransfersPlugin extends Plugin {
     private boolean vaultReady = false;
 
     static class Entry {
-        String id,url,name,state="paused",etag="",error="";
+        String id,url,name,state="paused",etag="",error="",sha256="";
         long bytes=0,total=-1,created=System.currentTimeMillis();
         int speedKiB=0;
         transient AtomicBoolean pause=new AtomicBoolean(false);
@@ -46,7 +46,7 @@ public final class PawchiveTransfersPlugin extends Plugin {
         JSONObject serialize() throws Exception {
             JSONObject v=new JSONObject();
             v.put("id",id);v.put("urlSealed",sealedUrl);v.put("name",name);v.put("state",state);
-            v.put("etag",etag);v.put("error",error);v.put("bytes",bytes);
+            v.put("etag",etag);v.put("sha256",sha256);v.put("error",error);v.put("bytes",bytes);
             v.put("total",total);v.put("created",created);v.put("speedKiB",speedKiB);
             return v;
         }
@@ -60,6 +60,8 @@ public final class PawchiveTransfersPlugin extends Plugin {
             }
             e.name=v.optString("name");
             e.state=v.optString("state","paused");e.etag=v.optString("etag","");
+            e.sha256=v.optString("sha256", "");
+            if(!e.sha256.isEmpty() && !DigestVerifier.validSha256(e.sha256)) throw new SecurityException("INVALID_SAVED_SHA256");
             e.error=v.optString("error","");e.bytes=v.optLong("bytes");
             e.total=v.optLong("total",-1);e.created=v.optLong("created");
             e.speedKiB=v.optInt("speedKiB");return e;
@@ -124,10 +126,12 @@ public final class PawchiveTransfersPlugin extends Plugin {
         if (!vaultReady) {call.reject("SECURE_STORAGE_UNAVAILABLE");return;}
         String url=call.getString("url","");
         int limit=call.getInt("speedKiB",0);
+        String trustedSha=call.getString("sha256", "").trim();
+        if(!trustedSha.isEmpty() && !DigestVerifier.validSha256(trustedSha)){call.reject("INVALID_SHA256");return;}
         if(limit<0||limit>102400){call.reject("INVALID_SPEED_LIMIT");return;}
         try{TransferCore.verifiedUrl(url);}catch(Exception error){call.reject("INVALID_HTTPS_URL");return;}
         Entry e=new Entry();e.id=UUID.randomUUID().toString();e.url=url;
-        e.name=safeName(call.getString("filename","download.bin"));e.speedKiB=limit;
+        e.name=safeName(call.getString("filename","download.bin"));e.speedKiB=limit;e.sha256=trustedSha;
         try { e.sealedUrl = vault.seal(url); }
         catch (Exception failed) {call.reject("SECURE_STORAGE_UNAVAILABLE");return;}
         synchronized(this){
@@ -155,7 +159,7 @@ public final class PawchiveTransfersPlugin extends Plugin {
                     public void onProgress(long bytes,long total){e.bytes=bytes;e.total=total;
                         if(System.currentTimeMillis()-lastSaved>1000){synchronized(PawchiveTransfersPlugin.this){persist();}
                             lastSaved=System.currentTimeMillis();}}
-                });
+                },e.sha256);
                 synchronized(this){e.bytes=target.length();e.total=e.bytes;e.state="success";persist();}
                 try {PawchiveDownloadsPlugin.registerCompletedM4(getContext(), e.id, e.name, target);}
                 catch (Exception galleryError) {
@@ -168,10 +172,10 @@ public final class PawchiveTransfersPlugin extends Plugin {
                 if(e.pause.get()){synchronized(this){e.bytes=part.length();e.state="paused";persist();}return;}
                 retries++;
                 // Changed ETags / malformed partial ranges should never be auto-appended.
-                if("VALIDATOR_CHANGED".equals(error.getMessage())||"INVALID_CONTENT_RANGE".equals(error.getMessage())){
+                if("VALIDATOR_CHANGED".equals(error.getMessage())||"INVALID_CONTENT_RANGE".equals(error.getMessage())||"SHA256_MISMATCH".equals(error.getMessage())){
                     part.delete();e.etag="";
                 }
-                if(retries>2 || error.getMessage()!=null && error.getMessage().startsWith("HTTP_4")){
+                if(retries>2 || "SHA256_MISMATCH".equals(error.getMessage()) || error.getMessage()!=null && error.getMessage().startsWith("HTTP_4")){
                     synchronized(this){e.bytes=part.length();e.state="failed";
                         String message = error.getMessage()==null ? "TRANSFER_ERROR":error.getMessage();
                         e.error=message.matches("(?:HTTP_[0-9]{3}|TRUNCATED_DOWNLOAD|SIZE_MISMATCH|INVALID_CONTENT_RANGE|VALIDATOR_CHANGED|PRIVATE_HOST_BLOCKED|TOO_MANY_REDIRECTS)")?message:"TRANSFER_ERROR";
@@ -206,7 +210,9 @@ public final class PawchiveTransfersPlugin extends Plugin {
     @PluginMethod public synchronized void setSpeed(PluginCall call){
         if (!vaultReady) {call.reject("SECURE_STORAGE_UNAVAILABLE");return;}
         Entry e=entries.get(call.getString("id",""));if(e==null){call.reject("UNKNOWN_TRANSFER");return;}
-        int limit=call.getInt("speedKiB",0);if(limit<0||limit>102400){call.reject("INVALID_SPEED_LIMIT");return;}
+        int limit=call.getInt("speedKiB",0);
+        String trustedSha=call.getString("sha256", "").trim();
+        if(!trustedSha.isEmpty() && !DigestVerifier.validSha256(trustedSha)){call.reject("INVALID_SHA256");return;}if(limit<0||limit>102400){call.reject("INVALID_SPEED_LIMIT");return;}
         if("running".equals(e.state)){call.reject("PAUSE_BEFORE_CHANGING_LIMIT");return;}
         e.speedKiB=limit;persist();call.resolve();
     }

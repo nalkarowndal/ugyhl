@@ -3,7 +3,7 @@ const source=process.cwd();const temp=fs.mkdtempSync(path.join(os.tmpdir(),'pawc
 try {
   for(const p of ['scripts','native/android','native/android/res/xml'])fs.mkdirSync(path.join(temp,p),{recursive:true});
   fs.copyFileSync(path.join(source,'scripts/install-native-plugin.mjs'),path.join(temp,'scripts/install-native-plugin.mjs'));
-  for(const file of ['PawchiveDownloadsPlugin.java','PawchiveTransfersPlugin.java','TransferCore.java','UrlVault.java','GalleryPaths.java','PawchiveFileProvider.java'])fs.copyFileSync(path.join(source,'native/android',file),path.join(temp,'native/android',file));
+  for(const file of ['PawchiveDownloadsPlugin.java','PawchiveTransfersPlugin.java','TransferCore.java','DigestVerifier.java','UrlVault.java','GalleryPaths.java','PawchiveFileProvider.java'])fs.copyFileSync(path.join(source,'native/android',file),path.join(temp,'native/android',file));
   fs.copyFileSync(path.join(source,'native/android/res/xml/pawchive_file_paths.xml'),path.join(temp,'native/android/res/xml/pawchive_file_paths.xml'));
   const base=path.join(temp,'android/app/src/main'),java=path.join(base,'java/com/pawchive/mobile');fs.mkdirSync(java,{recursive:true});
   fs.writeFileSync(path.join(java,'MainActivity.java'),`package com.pawchive.mobile;\npublic class MainActivity extends BridgeActivity { @Override public void onCreate(android.os.Bundle savedInstanceState) { super.onCreate(savedInstanceState); } }`);
@@ -17,5 +17,5 @@ try {
   if(manifest.split('android.permission.INTERNET').length!==2)throw new Error('duplicate INTERNET permission');
   if(!manifest.includes('${applicationId}.pawchive.files'))throw new Error('wrong FileProvider authority');
   if(!fs.existsSync(path.join(base,'res/xml/pawchive_file_paths.xml')))throw new Error('resource missing');
-  console.log('PASS: M5 plugin installer twice, provider, permissions, six classes');
+  console.log('PASS: M6 plugin installer twice, provider, permissions, six classes');
 } finally { fs.rmSync(temp,{recursive:true,force:true}); }

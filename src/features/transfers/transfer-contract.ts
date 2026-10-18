@@ -10,10 +10,11 @@ export interface TransferRecord {
   bytes: number;
   total: number;
   speedKiB: number;
+  sha256?: string;
   error?: string;
 }
 export interface PawchiveTransfers {
-  start(options: { url: string; filename: string; speedKiB: number }): Promise<{ id: string }>;
+  start(options: { url: string; filename: string; speedKiB: number; sha256?: string }): Promise<{ id: string }>;
   list(): Promise<{ transfers: TransferRecord[] }>;
   pause(options: { id: string }): Promise<void>;
   resume(options: { id: string }): Promise<void>;
