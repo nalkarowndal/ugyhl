@@ -6,6 +6,7 @@ export interface BackgroundTransfer {
   bytes: number;
   total: number;
   error: string;
+  schedulerState?: 'EXECUTING' | 'WAIT_NETWORK' | 'WAIT_DEVICE' | 'WAIT_QUOTA' | 'WAIT_SYSTEM' | 'MISSING_JOB' | 'UNKNOWN';
   wifiOnly: boolean;
   sha256: string;
   created: number;

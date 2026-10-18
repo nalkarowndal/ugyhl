@@ -4,6 +4,7 @@ import { ArrowDownToLine, AlertTriangle, Pause, Play, RefreshCw, ShieldCheck } f
 import { runningOnAndroid, enqueueDownload } from '../../lib/native';
 import { safeFilenameFromUrl, validateFileUrl, formatBytes } from '../../lib/url';
 import type { PawchiveBackground, BackgroundTransfer } from './background-contract';
+import { schedulerCaption } from './background-status';
 import './background.css';
 
 const background = registerPlugin<PawchiveBackground>('PawchiveBackground');
@@ -75,6 +76,7 @@ export function BackgroundTransfers() {
       {items.map(item => <article className="background-entry" key={item.id}>
         <div className="background-copy"><b>{item.filename}</b><span>{captions[item.state]} · {formatBytes(item.bytes)} / {item.total>0 ? formatBytes(item.total) : '크기 미정'}</span>
           {item.error && <small>{item.error}</small>}
+          {item.schedulerState && item.state === 'queued' && <small>{schedulerCaption(item.schedulerState)}</small>}
           {item.total>0 && <progress max={item.total} value={Math.min(item.total,item.bytes)} />}</div>
         <div className="advanced-buttons">{['queued','running'].includes(item.state) && <button aria-label="중지" onClick={()=>void control(item.id,false)}><Pause size={16}/></button>}
           {['paused','failed'].includes(item.state) && <button aria-label="다시 시작" onClick={()=>void control(item.id,true)}><Play size={16}/></button>}</div>

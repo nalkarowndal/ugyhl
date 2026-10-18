@@ -1,3 +1,5 @@
+> **M8 development milestone (2026-10-19):** Android 14+ UIDT jobs now update progress notifications at a bounded rate, report network-byte estimates and counters to JobScheduler, and expose system scheduling diagnostics in the React UI. Runtime device QA remains incomplete. Force-stop cannot be overridden.
+
 # Pawchive Mobile — M7 (React + Capacitor + Android)
 
 An **unofficial, personal and non-commercial** mobile adaptation inspired by [Pawchive Downloader v1.2.9](https://github.com/whyamihere773/Pawchive-Downloader/releases/tag/v1.2.9). The original project has a custom source-available license, **not** an MIT/open redistribution license. See `UPSTREAM_LICENSE.txt`. Maintain attribution; obtain written permission before commercial distribution.
