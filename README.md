@@ -1,23 +1,34 @@
-# Pawchive Mobile — M4 (React · Capacitor · Android)
+# Pawchive Mobile — M5 (React + Capacitor + Android)
 
-An **unofficial, personal/non-commercial** mobile reimplementation that references the architecture and feature set of [Pawchive Downloader v1.2.9](https://github.com/whyamihere773/Pawchive-Downloader/releases/tag/v1.2.9). Not an official Pawchive client or affiliate. The original source is released under a **custom source-available license**, not a standard permissive open-source license; see `UPSTREAM_LICENSE.txt`.
+An **unofficial, personal and non-commercial** mobile adaptation inspired by [Pawchive Downloader v1.2.9](https://github.com/whyamihere773/Pawchive-Downloader/releases/tag/v1.2.9). The original project has a custom source-available license, **not** an MIT/open redistribution license. See `UPSTREAM_LICENSE.txt`. Maintain attribution; obtain written permission before commercial distribution.
 
-## Implemented source (not an independently validated APK)
+## Current milestone status
 
-| Phase | Implementation | Status |
+| Milestone | Source code implementation | Tested? |
 |---|---|---|
-| M1 | React responsive Korean UI, Android DownloadManager enqueue/list/cancel/retry, Wi-Fi only | Source written |
-| M2 | Pawchive/Cum.st URL parser, public posts lookup, attachments filters, native queue | Source written; API live reachability unverified |
-| M3 | SQLite history migration, real completed-download library, filters/sort/search/favorites, thumbnail generation, file open, confirmed delete | Source written; Android compilation/device QA unverified |
-| M4-alpha | Experimental foreground-session Range downloader, `.part` checkpoint, ETag/Last-Modified validator, manual pause/resume, per-download KiB/s speed limit, transfer JSON registry | Pure Java tests passed; APK and live transfer unverified |
+| M1 | Mobile React UI, Android DownloadManager queue/list/cancel | Source-only, no device QA |
+| M2 | Pawchive/Cum.st creator & single-post parsing, API lookup, attachment selection | Smoke tests, not live API tested |
+| M3 | Android SQLite library/history, image thumbnails, favorites, safe delete/open | Syntax-only, no device QA |
+| M4-alpha | In-process single-stream Range+ETag resume, pause, limited KiB/s throttle | Pure Java unit smoke tests |
+| M5 | Gallery indexing for M4, URL encryption/migration via Android Keystore, FileProvider, SQLite v2, safer resume | Pure unit checks, no APK yet |
 
-**Not yet feature-parity:** original watchlist updates, external media/cloud/Telegram/yt-dlp, deferred signed attachments, credentials, large file multi-part accelerator, bandwidth limiter, gallery video playback/preview, archive extraction and tag recognition.
+**The app is not at upstream feature parity.** Telegram, cloud downloaders, yt-dlp, AI matching, archive extraction, automatic watchlist sync, multipart downloads, global bandwidth throttle and 24/7 Android background transfers remain unimplemented.
 
-## Requirements
-- Node 20.19+ or 22.12+; npm network access.
-- For APK: Android Studio and SDK, Java 17-compatible Gradle/Android plugin setup.
+## Project tree
 
-## Run
+- `src/App.tsx` and `src/features/*` — React TypeScript responsive UI and views
+- `src/lib/*` — URL validation, Pawchive public API adapters, Capacitor native bridge
+- `native/android/PawchiveDownloadsPlugin.java` — OS-managed downloads, SQLite v2 gallery
+- `native/android/PawchiveTransfersPlugin.java` — **experimental** M4 resumable transfer orchestration
+- `native/android/TransferCore.java` — pure Java HTTPS Range download engine
+- `native/android/UrlVault.java` — AndroidKeyStore-backed AES/GCM sealing of resume URLs
+- `native/android/GalleryPaths.java` — pure Java canonical-path guard for M4 gallery
+- `native/android/PawchiveFileProvider.java` and `native/android/res/xml/pawchive_file_paths.xml` — scoped file-view sharing
+- `scripts/install-native-plugin.mjs` — repeatable Android source + manifest installer
+- `docs/M5_QA.md` — QA and gaps
+
+## Installation / build (requires outside this environment)
+
 ```bash
 npm install
 npm test
@@ -25,37 +36,40 @@ npm run build
 npm run dev
 ```
 
-Android setup for fresh project:
+Build on Android SDK installation, with JDK17:
+
 ```bash
 npm run android:init
 npm run android:open
+# In Android Studio, assembleDebug or use ./gradlew :app:assembleDebug
 ```
-For previously-created Android folder use `npm run android:sync`. The setup script copies native `PawchiveDownloadsPlugin.java` into the Capacitor Android project's app package and registers it in MainActivity, after generating Android source with `npx cap add android`. **You still need to build and run the APK with Android Studio**. A successful web build is not proof of Android functionality.
 
-## Architecture
-- React+TypeScript UI (`src/App.tsx`, `src/features/explorer`, `src/features/library`).
-- Public Pawchive/Cum.st API adapter (`src/lib/pawchive.ts`) with domain checks. Android API uses CapacitorHttp; browser API may fail due to CORS.
-- Android Java plugin (`native/android/PawchiveDownloadsPlugin.java`) for OS-managed download tasks and local library access.
-- **Experimental M4** (`native/android/TransferCore.java`, `PawchiveTransfersPlugin.java`, `src/features/transfers`): independent long-file sequential Range transfer. This is **not** a multi-part accelerator or globally shared throttle, and not integrated with M3 gallery yet.
-- SQLite `pawchive_library.db` for durable metadata and favorites; migrates legacy SharedPreferences `pawchive_mobile_downloads_v1` entries only once.
-- Gallery shows **actual successful tracked Android downloads only**; on the web, displays explicit platform limit rather than fake sample content.
+For existing Android project: `npm run android:sync`. Do not clear app data when testing M3->M5 migration.
 
-## M4-alpha use
+## Two download modes
 
-Open the **다운로드 관리** tab and use the separate **고급 다운로드 엔진** card. Zero KiB/s means no cap. A transfer must be paused before changing its speed limit (native API method exists; per-job editing UI is planned). Java transfer tests without Android SDK: `bash scripts/test-transfer-core.sh`. The experimental worker runs in an in-process executor, not an OS foreground service; do not rely on it continuing after the app closes or under Android battery pressure. Opening finished advanced downloads is not integrated with gallery yet; completed bytes are in app-specific `Download/Pawchive-M4`. The M1–M3 DownloadManager path remains intact.
+1. **Android 기본 다운로드:** use built-in Android DownloadManager for OS-managed transfers; generally more robust in background. History and completed files appear in gallery.
+2. **고급 다운로드 엔진 (실험적):** supports manual pause/resume, a `.part` file, conditional HTTP Range requests and individual job speed cap. **It runs in an app-process executor, not a foreground service/UIDT job.** It can stop as soon as Android kills the app process. Completed downloads appear in gallery with `m4:` IDs.
 
-## Privacy and security
-- Only personally accessible, lawfully downloadable content. Do not bypass platform access restrictions or DRM.
-- No external browser cookie extraction or saved passwords. Avoid persisting signed file URLs as user-visible logs.
-- **M4 experimental state file contains full download URLs**, possibly signed query tokens, inside Android app-private **no-backup** storage, but not encrypted. Do not use private authenticated download URLs until Android Keystore encryption and URL redaction are available.
-- Direct HTTPS downloads cannot guarantee files are safe or free of malware. Use device-level scanning as appropriate.
-- User confirmation precedes file and history deletion. No bulk file deletion.
-- App-specific external files path. Files are opened with content URIs and temporary read access.
+## Privacy and security notes
 
-## Verify / Known limitations
-Read [`docs/M4_QA.md`](docs/M4_QA.md) and [`docs/M3_QA.md`](docs/M3_QA.md). In the ChatGPT execution container, npm install failed with DNS `EAI_AGAIN` for registry.npmjs.org, and Android SDK is unavailable. Therefore no npm build or APK claim is made.
+- M5 encrypts only the experimental M4 registry URL at rest with Android Keystore AES-GCM. The existing M3/OS DownloadManager database still contains URLs in plain text: **avoid private signed URLs** until that path is hardened.
+- M4 pre-upgrade plaintext resume URLs may remain recoverable in old physical flash blocks or outside app-managed backups; migration cannot guarantee forensic erasure.
+- Public `PawchiveTransfers.list()` returns neither URL nor ciphertext.
+- No desktop cookie extraction, DRM circumvention, or browser credential scraping. Only access content for which you have legal permission.
+- Gallery access is limited to this application's own downloaded files; FileProvider exposes only a single app-specific download subdirectory.
+- No verified malware scanning; treat downloaded attachments as untrusted.
+
+## Development checks
+
+```bash
+bash scripts/test-transfer-core.sh
+node scripts/verify-source.cjs
+node scripts/test-install-native.mjs
+```
+
+These checks are not proof of Android compilation, runtime correctness or security. See [M5 QA](docs/M5_QA.md).
 
 ## Attribution
-Original copyright and license are preserved in `UPSTREAM_LICENSE.txt`. Modified/mobile port copyright for wholly new contributions belongs to its respective authors, subject to the original project's license and third-party library license obligations. For commercial redistribution obtain prior written permission from upstream author.
 
-References: [Capacitor Android custom plugin](https://capacitorjs.com/docs/android/custom-code) · [Android DownloadManager](https://developer.android.com/reference/android/app/DownloadManager) · [GitHub upstream](https://github.com/whyamihere773/Pawchive-Downloader/tree/v1.2.9).
+Original: [whyamihere773/Pawchive-Downloader](https://github.com/whyamihere773/Pawchive-Downloader) · [Custom source available license](https://github.com/whyamihere773/Pawchive-Downloader/blob/v1.2.9/LICENSE)

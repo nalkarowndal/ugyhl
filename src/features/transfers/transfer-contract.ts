@@ -1,12 +1,11 @@
 /**
  * M4 experimental Android native transfer bridge contract.
  * Unlike M3 DownloadManager files, these tasks are app-session transfers and
- * their completion does not yet make them visible in the M3 SQLite gallery.
+ * completed files are indexed into the SQLite gallery in M5.
  */
 export interface TransferRecord {
   id: string;
   name: string;
-  url: string;
   state: 'queued' | 'running' | 'pausing' | 'paused' | 'failed' | 'success';
   bytes: number;
   total: number;
