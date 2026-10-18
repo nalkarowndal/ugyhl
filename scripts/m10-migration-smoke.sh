@@ -32,9 +32,9 @@ adb shell am start -W -n "$APP/.MainActivity" | tee "$OUT/launch.txt"
 sleep 10
 adb shell pidof "$APP" >/dev/null || { echo "FAIL: app did not survive migration"; exit 1; }
 # Storage access is initialized by the Android app after first launch.
-adb shell run-as "$APP" mkdir -p "$M4_DIR"
-adb shell run-as "$APP" cp /data/local/tmp/m10-qa-sample.png "$M4_DIR/${IMAGE_ID}_qa-sample.png"
-adb shell run-as "$APP" test -s "$M4_DIR/${IMAGE_ID}_qa-sample.png"
+adb shell mkdir -p "$M4_DIR"
+adb shell cp /data/local/tmp/m10-qa-sample.png "$M4_DIR/${IMAGE_ID}_qa-sample.png"
+adb shell test -s "$M4_DIR/${IMAGE_ID}_qa-sample.png"
 node "$ROOT/scripts/inspect-webview.mjs"
 node "$ROOT/scripts/m10-2-native-retry.mjs" 424242 success
 adb shell am force-stop "$APP"
@@ -47,7 +47,7 @@ node "$ROOT/scripts/m10-3-gallery-action.mjs" open
 adb shell am start -W -n "$APP/.MainActivity" >/dev/null
 sleep 4
 node "$ROOT/scripts/m10-3-gallery-action.mjs" delete
-adb shell run-as "$APP" test ! -f "$M4_DIR/${IMAGE_ID}_qa-sample.png"
+adb shell test ! -f "$M4_DIR/${IMAGE_ID}_qa-sample.png"
 cp "$ROOT/qa-output/webview-diagnostics.json" "$OUT/webview-diagnostics.json"
 cp "$ROOT/qa-output/webview-cdp.png" "$OUT/webview-cdp.png"
 python3 "$ROOT/scripts/check-screenshot.py" "$OUT/webview-cdp.png"
