@@ -15,7 +15,7 @@
 ## Executed verification
 - Pure Java core `javac` compilation: PASS
 - Java unit smoke tests: PASS (Content-Range, invalid URL/local addresses, pause)
-- TS/TSX 14-file transpile syntax check and pure JS logic smoke tests: PASS
+- TS/TSX 15-file transpile syntax check and pure JS logic smoke tests: PASS
 - Mocked Android plugin installation, twice: PASS (no duplicate registration)
 - ZIP file CRC integrity: PASS
 
