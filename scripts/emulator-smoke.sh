@@ -25,6 +25,9 @@ adb logcat -c || true
 launch
 adb shell screencap -p /sdcard/pawchive-m9.png
 adb pull /sdcard/pawchive-m9.png "$OUT/emulator-launch.png" >/dev/null
+adb logcat -d -v time | tail -n 3000 > "$OUT/logcat-launch.txt" || true
+adb shell uiautomator dump /sdcard/pawchive-m9-view.xml >/dev/null 2>&1 && adb pull /sdcard/pawchive-m9-view.xml "$OUT/ui-hierarchy.xml" >/dev/null || true
+python3 "$ROOT/scripts/check-screenshot.py" "$OUT/emulator-launch.png"
 launch
 adb logcat -d -b crash > "$OUT/crash-buffer.log" || true
 if grep -E '(FATAL EXCEPTION|Fatal signal)' "$OUT/crash-buffer.log"; then exit 6; fi
