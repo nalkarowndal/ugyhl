@@ -73,10 +73,22 @@ try{
   screenshot='saved';
  }
 }catch(e){screenshot='error';exceptions.push({message:String(e.message||e).slice(0,180)})}
+// Prove real React navigation, not just a static screenshot. No file/network actions.
+let nav={downloads:false,home:false};
+try{
+ await command('Runtime.evaluate',{expression:"Array.from(document.querySelectorAll('nav .nav-link')).find(b=>b.textContent.includes('다운로드'))?.click()",returnByValue:true});
+ await wait(300);
+ const selected=await command('Runtime.evaluate',{expression:"document.querySelector('nav .nav-link.selected')?.textContent?.trim() || ''",returnByValue:true});
+ nav.downloads=String(selected.result?.result?.value || '').includes('다운로드');
+ await command('Runtime.evaluate',{expression:"Array.from(document.querySelectorAll('nav .nav-link')).find(b=>b.textContent.includes('홈'))?.click()",returnByValue:true});
+ await wait(300);
+ const home=await command('Runtime.evaluate',{expression:"document.querySelector('nav .nav-link.selected')?.textContent?.trim() || ''",returnByValue:true});
+ nav.home=String(home.result?.result?.value || '').includes('홈');
+}catch(e){exceptions.push({message:'navigation test failed: '+String(e.message||e).slice(0,110)})}
 ws.close();
-save({result:'inspected',dom,exceptions:exceptions.slice(0,10),cdpScreenshot:screenshot});
+save({result:'inspected',dom,exceptions:exceptions.slice(0,10),cdpScreenshot:screenshot,navigation:nav});
 console.log('M9.1 WebView structural diagnostics:',JSON.stringify(dom));
-if(!dom.frameFound||dom.rootTextLength<80||dom.frameWidth<=0||dom.frameDisplay==='none'){
+if(!dom.frameFound||dom.rootTextLength<80||dom.frameWidth<=0||dom.frameDisplay==='none'||!nav.downloads||!nav.home){
  console.error('FAIL: WebView React root not rendered/visible');
  process.exit(1);
 }
