@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Activity, ArrowDownToLine, ArrowRight, Bell, Check, CheckCircle2, ChevronRight, CircleAlert, CloudDownload, Download, ExternalLink, FileArchive, FolderOpen, HardDriveDownload, Heart, Home, Images, Info, Link2, ListFilter, PauseCircle, Play, Plus, RefreshCw, Search, Settings2, ShieldCheck, SlidersHorizontal, Smartphone, Sparkles, Trash2, Wifi, X } from 'lucide-react';
 import type { DownloadItem, Screen } from './lib/types';
-import { cancelDownload, enqueueDownload, getDownloads, runningOnAndroid } from './lib/native';
+import { cancelDownload, enqueueDownload, getDownloads, retryDownload, runningOnAndroid } from './lib/native';
 import { formatBytes, safeFilenameFromUrl, validateFileUrl } from './lib/url';
 import { readSettings, readWatchlist, saveSettings, saveWatchlist } from './lib/storage';
 import { CreatorExplorer } from './features/explorer/CreatorExplorer';
@@ -77,7 +77,7 @@ export default function App(){
     catch(e){setNotice(`추가 실패: ${String(e)}`)}finally{setBusy(false)}
   };
   const cancel=async(id:string)=>{try{await cancelDownload(id);await refresh()}catch(e){setNotice(`취소 실패: ${String(e)}`)}};
-  const retry=async(task:DownloadItem)=>{try{await enqueueDownload(task.url,task.filename,settings.wifiOnly);await refresh()}catch(e){setNotice(`재시도 실패: ${String(e)}`)}};
+  const retry=async(task:DownloadItem)=>{try{await retryDownload(task.id,settings.wifiOnly);await refresh()}catch(e){setNotice(`재시도 실패: ${String(e)}`)}};
   const addWatch=()=>{
     const text=watchInput.trim();const valid=validateFileUrl(text);
     if(!valid.valid){setNotice(valid.message);return}

@@ -47,15 +47,40 @@ public class PawchiveDownloadsPlugin extends Plugin {
     private LibraryDb db;
 
     static class LibraryDb extends SQLiteOpenHelper {
-        LibraryDb(Context ctx) { super(ctx, "pawchive_library.db", null, 2); }
+        LibraryDb(Context ctx) { super(ctx, "pawchive_library.db", null, 3); }
         @Override public void onCreate(SQLiteDatabase database) {
-            database.execSQL("CREATE TABLE downloads (id TEXT PRIMARY KEY NOT NULL, url TEXT NOT NULL, filename TEXT NOT NULL, created_at INTEGER NOT NULL, favorite INTEGER NOT NULL DEFAULT 0, source TEXT NOT NULL DEFAULT 'system', local_path TEXT NOT NULL DEFAULT '')");
+            database.execSQL("CREATE TABLE downloads (id TEXT PRIMARY KEY NOT NULL, url TEXT NOT NULL, filename TEXT NOT NULL, created_at INTEGER NOT NULL, favorite INTEGER NOT NULL DEFAULT 0, source TEXT NOT NULL DEFAULT 'system', local_path TEXT NOT NULL DEFAULT '', url_sealed TEXT NOT NULL DEFAULT '')");
             database.execSQL("CREATE INDEX idx_downloads_created ON downloads(created_at DESC)");
+        }
+        @Override public void onConfigure(SQLiteDatabase database) {
+            super.onConfigure(database);
+            database.execSQL("PRAGMA secure_delete=ON");
         }
         @Override public void onUpgrade(SQLiteDatabase database, int oldVersion, int newVersion) {
             if (oldVersion < 2) {
                 database.execSQL("ALTER TABLE downloads ADD COLUMN source TEXT NOT NULL DEFAULT 'system'");
                 database.execSQL("ALTER TABLE downloads ADD COLUMN local_path TEXT NOT NULL DEFAULT ''");
+            }
+            if (oldVersion < 3) {
+                database.execSQL("ALTER TABLE downloads ADD COLUMN url_sealed TEXT NOT NULL DEFAULT ''");
+                try {
+                    java.util.ArrayList<String[]> legacy = new java.util.ArrayList<>();
+                    try (Cursor cursor = database.rawQuery("SELECT id,url FROM downloads WHERE url<>''", null)) {
+                        while (cursor.moveToNext()) legacy.add(new String[]{cursor.getString(0), cursor.getString(1)});
+                    }
+                    if (!legacy.isEmpty()) {
+                        UrlVault vault = new UrlVault();
+                        for (String[] row : legacy) {
+                            android.content.ContentValues values = new android.content.ContentValues();
+                            values.put("url_sealed", vault.seal(row[1]));
+                            values.put("url", "");
+                            database.update("downloads", values, "id=?", new String[]{row[0]});
+                        }
+                    }
+                } catch (Exception error) {
+                    // SQLiteOpenHelper upgrades in a transaction: fail closed and roll back.
+                    throw new IllegalStateException("URL_VAULT_MIGRATION_FAILED", error);
+                }
             }
         }
     }
@@ -97,11 +122,16 @@ public class PawchiveDownloadsPlugin extends Plugin {
     /** Idempotent conversion of M1/M2 SharedPreferences records into SQLite. */
     private synchronized void migrateIfNeeded() {
         SharedPreferences prefs = getContext().getSharedPreferences(OLD_PREF, Context.MODE_PRIVATE);
-        if (prefs.getBoolean(MIGRATED, false)) return;
+        if (prefs.getBoolean(MIGRATED, false)) {
+            // Older releases left the original plaintext copy in preferences.
+            if (prefs.contains(OLD_KEY)) prefs.edit().remove(OLD_KEY).commit();
+            return;
+        }
         SQLiteDatabase database = db.getWritableDatabase();
         database.beginTransaction();
         try {
             JSONArray old = new JSONArray(prefs.getString(OLD_KEY, "[]"));
+            UrlVault vault = new UrlVault();
             for (int i = 0; i < old.length(); i++) {
                 JSONObject record = old.optJSONObject(i);
                 if (record == null) continue;
@@ -109,7 +139,9 @@ public class PawchiveDownloadsPlugin extends Plugin {
                 if (id.isEmpty()) continue;
                 android.content.ContentValues row = new android.content.ContentValues();
                 row.put("id", id);
-                row.put("url", record.optString("url", ""));
+                String legacyUrl = record.optString("url", "");
+                row.put("url", "");
+                row.put("url_sealed", legacyUrl.isEmpty() ? "" : vault.seal(legacyUrl));
                 row.put("filename", record.optString("filename", "download.bin"));
                 row.put("created_at", System.currentTimeMillis() - (old.length() - i) * 1000L);
                 database.insertWithOnConflict("downloads", null, row, SQLiteDatabase.CONFLICT_IGNORE);
@@ -122,7 +154,8 @@ public class PawchiveDownloadsPlugin extends Plugin {
             Log.e(TAG, "Legacy migration failed", error);
             throw new IllegalStateException("Legacy migration failed", error);
         } finally { database.endTransaction(); }
-        prefs.edit().putBoolean(MIGRATED, true).commit();
+        if (!prefs.edit().remove(OLD_KEY).putBoolean(MIGRATED, true).commit())
+            throw new IllegalStateException("LEGACY_PREF_CLEANUP_FAILED");
     }
 
     private static String safeName(String input) {
@@ -148,39 +181,83 @@ public class PawchiveDownloadsPlugin extends Plugin {
         } catch (Exception error) { return false; }
     }
 
-    @PluginMethod public void enqueue(PluginCall call) {
-        String url = call.getString("url", "");
-        if (!validHttps(url)) { call.reject("HTTPS_URL_REQUIRED"); return; }
-        String name = safeName(call.getString("filename", "download.bin"));
-        boolean wifiOnly = Boolean.TRUE.equals(call.getBoolean("wifiOnly", false));
+    /** Only the OS DownloadManager sees a plaintext URL. SQLite stores encrypted URL only. */
+    private long enqueueTracked(String url, String name, boolean wifiOnly) throws Exception {
+        if (!validHttps(url)) throw new IllegalArgumentException("HTTPS_URL_REQUIRED");
+        migrateIfNeeded();
+        String sealed = new UrlVault().seal(url);
+        File root = getContext().getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
+        if (root == null) throw new IllegalStateException("STORAGE_UNAVAILABLE");
+        File folder = new File(root, "Pawchive");
+        if (!folder.exists() && !folder.mkdirs()) throw new IllegalStateException("STORAGE_UNAVAILABLE");
+        String unique = System.currentTimeMillis() + "_" + name;
+        DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url))
+            .setTitle(name)
+            .setDescription("Pawchive Mobile download")
+            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+            .setAllowedOverMetered(!wifiOnly)
+            .setAllowedOverRoaming(false)
+            .setDestinationInExternalFilesDir(getContext(), Environment.DIRECTORY_DOWNLOADS, "Pawchive/" + unique);
+        if (wifiOnly) request.setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI);
+        long id = manager().enqueue(request);
         try {
-            migrateIfNeeded();
-            File root = getContext().getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS);
-            if (root == null) { call.reject("STORAGE_UNAVAILABLE"); return; }
-            File folder = new File(root, "Pawchive");
-            if (!folder.exists() && !folder.mkdirs()) { call.reject("STORAGE_UNAVAILABLE"); return; }
-            String unique = System.currentTimeMillis() + "_" + name;
-            DownloadManager.Request request = new DownloadManager.Request(Uri.parse(url))
-                .setTitle(name)
-                .setDescription("Pawchive Mobile download")
-                .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                .setAllowedOverMetered(!wifiOnly)
-                .setAllowedOverRoaming(false)
-                .setDestinationInExternalFilesDir(getContext(), Environment.DIRECTORY_DOWNLOADS, "Pawchive/" + unique);
-            if (wifiOnly) request.setAllowedNetworkTypes(DownloadManager.Request.NETWORK_WIFI);
-            long id = manager().enqueue(request);
-            try {
-                android.content.ContentValues values = new android.content.ContentValues();
-                values.put("id", Long.toString(id)); values.put("url", url);
-                values.put("filename", name); values.put("created_at", System.currentTimeMillis());
-                db.getWritableDatabase().insertOrThrow("downloads", null, values);
-            } catch (Exception persistError) {
-                manager().remove(id); // Avoid leaving an untracked download behind.
-                throw persistError;
-            }
+            android.content.ContentValues values = new android.content.ContentValues();
+            values.put("id", Long.toString(id));
+            values.put("url", "");
+            values.put("url_sealed", sealed);
+            values.put("filename", name);
+            values.put("created_at", System.currentTimeMillis());
+            db.getWritableDatabase().insertOrThrow("downloads", null, values);
+        } catch (Exception persistError) {
+            manager().remove(id); // No orphan downloads if metadata persistence fails.
+            throw persistError;
+        }
+        return id;
+    }
+
+    @PluginMethod public void enqueue(PluginCall call) {
+        try {
+            String url = call.getString("url", "");
+            String name = safeName(call.getString("filename", "download.bin"));
+            boolean wifiOnly = Boolean.TRUE.equals(call.getBoolean("wifiOnly", false));
+            long id = enqueueTracked(url, name, wifiOnly);
             JSObject out = new JSObject(); out.put("id", Long.toString(id)); call.resolve(out);
         } catch (Exception error) {
             Log.e(TAG, "enqueue failed", error); call.reject("ENQUEUE_FAILED");
+        }
+    }
+
+    /** Retry by app-owned ID; never return stored URL across the JS bridge. */
+    @PluginMethod public void retry(PluginCall call) {
+        try {
+            migrateIfNeeded();
+            String id = call.getString("id", "");
+            if (!id.matches("[0-9]+")) { call.reject("INVALID_DOWNLOAD_ID"); return; }
+            String sealed, filename;
+            try (Cursor row = db.getReadableDatabase().rawQuery(
+                "SELECT url_sealed,filename FROM downloads WHERE id=? AND source='system'",
+                new String[]{id})) {
+                if (!row.moveToFirst()) { call.reject("DOWNLOAD_NOT_FOUND"); return; }
+                sealed = row.getString(0); filename = row.getString(1);
+            }
+            if (sealed == null || sealed.isEmpty()) { call.reject("RETRY_URL_UNAVAILABLE"); return; }
+            long previousId = Long.parseLong(id);
+            try (Cursor status = manager().query(new DownloadManager.Query().setFilterById(previousId))) {
+                if (status != null && status.moveToFirst() &&
+                    status.getInt(status.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
+                        != DownloadManager.STATUS_FAILED) {
+                    call.reject("DOWNLOAD_NOT_RETRYABLE"); return;
+                }
+            }
+            String url = new UrlVault().open(sealed);
+            if (!validHttps(url)) { call.reject("RETRY_URL_INVALID"); return; }
+            boolean wifiOnly = Boolean.TRUE.equals(call.getBoolean("wifiOnly", false));
+            long nextId = enqueueTracked(url, safeName(filename), wifiOnly);
+            JSObject out = new JSObject(); out.put("id", Long.toString(nextId)); call.resolve(out);
+        } catch (Exception error) {
+            // Never log decrypted URLs or exception payloads from keystore/network.
+            Log.e(TAG, "native retry failed");
+            call.reject("RETRY_FAILED");
         }
     }
 
@@ -206,17 +283,17 @@ public class PawchiveDownloadsPlugin extends Plugin {
             migrateIfNeeded();
             JSArray all = new JSArray();
             try (Cursor records = db.getReadableDatabase().rawQuery(
-                "SELECT id, url, filename, created_at, favorite, source FROM downloads ORDER BY created_at DESC", null)) {
+                "SELECT id, filename, created_at, favorite, source FROM downloads ORDER BY created_at DESC", null)) {
                 while (records.moveToNext()) {
                     String id = records.getString(0);
                     JSObject row = new JSObject();
-                    row.put("id", id); row.put("url", records.getString(1));
-                    row.put("filename", records.getString(2));
-                    row.put("createdAt", records.getLong(3));
-                    row.put("favorite", records.getInt(4) == 1);
+                    row.put("id", id); row.put("url", ""); // Never send persisted URLs to React.
+                    row.put("filename", records.getString(1));
+                    row.put("createdAt", records.getLong(2));
+                    row.put("favorite", records.getInt(3) == 1);
                     row.put("bytesDownloaded", 0L); row.put("totalBytes", -1L);
                     row.put("status", "failed"); row.put("reason", "NOT_FOUND");
-                    if ("m4".equals(records.getString(5))) {
+                    if ("m4".equals(records.getString(4))) {
                         try {
                             File file = completedM4File(id);
                             if (file.isFile()) {
