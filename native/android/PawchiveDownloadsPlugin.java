@@ -135,7 +135,9 @@ public class PawchiveDownloadsPlugin extends Plugin {
         database.beginTransaction();
         try {
             JSONArray old = new JSONArray(prefs.getString(OLD_KEY, "[]"));
-            UrlVault vault = new UrlVault();
+            // Do not generate a new key on an empty legacy migration: restored
+            // encrypted history must report a missing key, not silently replace it.
+            UrlVault vault = old.length() > 0 ? new UrlVault() : null;
             for (int i = 0; i < old.length(); i++) {
                 JSONObject record = old.optJSONObject(i);
                 if (record == null) continue;
