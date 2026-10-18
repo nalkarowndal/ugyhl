@@ -33,6 +33,9 @@ cp "$ROOT/qa-output/webview-cdp.png" "$OUT/webview-cdp.png"
 python3 "$ROOT/scripts/check-screenshot.py" "$OUT/webview-cdp.png"
 
 # Snapshot database after clean app process stop, preserving any existing WAL.
+adb logcat -d -v time | tail -n 4000 > "$OUT/logcat-migration.txt" || true
+echo "M10 migration native errors (synthetic fixture):"
+grep -E 'PawchiveMobile|SQLiteException|AndroidKeyStore|UrlVault|URL_VAULT|Legacy migration|library_list' "$OUT/logcat-migration.txt" | tail -n 45 || true
 adb shell am force-stop "$APP"
 adb exec-out run-as "$APP" cat databases/pawchive_library.db > "$OUT/upgraded.db"
 for ext in wal shm; do
