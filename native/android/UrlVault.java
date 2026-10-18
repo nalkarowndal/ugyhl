@@ -21,11 +21,19 @@ public final class UrlVault {
     private static final String PREFIX = "v1:";
     private final SecretKey key;
 
-    public UrlVault() throws Exception {
+    /** Do not silently generate a replacement key while decrypting old resume URLs. */
+    public static final class MissingKeyException extends java.security.GeneralSecurityException {
+        public MissingKeyException() { super("URL_KEY_NOT_AVAILABLE"); }
+    }
+
+    public UrlVault() throws Exception { this(true); }
+
+    public UrlVault(boolean createIfMissing) throws Exception {
         KeyStore store = KeyStore.getInstance("AndroidKeyStore");
         store.load(null);
         SecretKey existing = (SecretKey) store.getKey(ALIAS, null);
         if (existing != null) { key = existing; return; }
+        if (!createIfMissing) throw new MissingKeyException();
         KeyGenerator generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore");
         generator.init(new KeyGenParameterSpec.Builder(ALIAS,
             KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
@@ -47,7 +55,9 @@ public final class UrlVault {
     }
     public String open(String ciphertext) throws Exception {
         if (ciphertext == null || !ciphertext.startsWith(PREFIX)) throw new SecurityException("INVALID_URL_CIPHERTEXT");
-        byte[] combined = Base64.decode(ciphertext.substring(PREFIX.length()), Base64.NO_WRAP);
+        byte[] combined;
+        try { combined = Base64.decode(ciphertext.substring(PREFIX.length()), Base64.NO_WRAP); }
+        catch (IllegalArgumentException bad) { throw new SecurityException("INVALID_URL_CIPHERTEXT"); }
         if (combined.length < 30 || combined[0] != 12) throw new SecurityException("INVALID_URL_CIPHERTEXT");
         byte[] iv = new byte[12]; System.arraycopy(combined, 1, iv, 0, 12);
         Cipher cipher = Cipher.getInstance(TRANSFORM);
