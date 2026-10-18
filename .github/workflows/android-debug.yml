@@ -3,11 +3,12 @@ on:
   push:
     branches:
       - dev/m6-android-hardening
+      - dev/m7-uidt
   workflow_dispatch:
 jobs:
   build-debug:
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 35
     permissions:
       contents: read
     steps:
@@ -20,19 +21,19 @@ jobs:
           distribution: temurin
           java-version: '21'
       - uses: android-actions/setup-android@v4
-      - name: Android SDK
+      - name: Android SDK 35
         run: sdkmanager 'platforms;android-35' 'build-tools;35.0.0' 'platform-tools'
-      - name: Install npm dependencies
+      - name: Install dependencies
         run: npm install --no-audit --no-fund
-      - name: Create Capacitor Android project
+      - name: Generate and sync Capacitor Android project
         run: npm run android:init
-      - name: Build debug APK
+      - name: Build Android debug APK
         working-directory: android
         run: ./gradlew :app:assembleDebug --stacktrace
-      - name: Upload debug APK for verification
+      - name: Upload debug APK (unsigned for release)
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: pawchive-mobile-m6-debug
+          name: pawchive-mobile-m7-debug
           path: android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error

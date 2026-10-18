@@ -1,0 +1,12 @@
+.background-transfers { margin-top: 20px; }
+.background-transfers .advanced-form { display: grid; gap: 12px; }
+.background-transfers input[type=url], .background-transfers input[type=text] { width: 100%; min-width: 0; }
+.background-transfers label { font-size: .85rem; display: flex; flex-direction: column; gap: 6px; }
+.background-transfers .bg-wifi { flex-direction: row; align-items: center; gap: 8px; }
+.background-transfers .bg-wifi input { accent-color: #8d70fa; }
+.background-list { display: grid; gap: 10px; margin: 16px 0; }
+.background-entry { display: flex; align-items: center; gap: 12px; padding: 12px; border: 1px solid rgba(150,150,160,.18); border-radius: 12px; }
+.background-copy { flex: 1; min-width: 0; display: grid; gap: 5px; }
+.background-copy b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.background-copy span, .background-copy small { opacity: .72; font-size: .78rem; }
+.background-copy progress { width: 100%; accent-color: #9b7cff; }

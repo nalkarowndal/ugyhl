@@ -1,4 +1,4 @@
-# Pawchive Mobile — M6 (React + Capacitor + Android)
+# Pawchive Mobile — M7 (React + Capacitor + Android)
 
 An **unofficial, personal and non-commercial** mobile adaptation inspired by [Pawchive Downloader v1.2.9](https://github.com/whyamihere773/Pawchive-Downloader/releases/tag/v1.2.9). The original project has a custom source-available license, **not** an MIT/open redistribution license. See `UPSTREAM_LICENSE.txt`. Maintain attribution; obtain written permission before commercial distribution.
 
@@ -10,10 +10,10 @@ An **unofficial, personal and non-commercial** mobile adaptation inspired by [Pa
 | M2 | Pawchive/Cum.st creator & single-post parsing, API lookup, attachment selection | Smoke tests, not live API tested |
 | M3 | Android SQLite library/history, image thumbnails, favorites, safe delete/open | Syntax-only, no device QA |
 | M4-alpha | In-process single-stream Range+ETag resume, pause, limited KiB/s throttle | Pure Java unit smoke tests |
-| M5 | Gallery indexing for M4, URL encryption/migration via Android Keystore, FileProvider, SQLite v2, safer resume | Pure tests passed; APK compiled in M6 |
-| M6 | Complete GitHub source mirror, CI React/Android builds, optional trusted SHA-256 verification in advanced downloader | Source unit tests passed; M6 checksum APK needs CI build + physical device QA |
+| M5 | Gallery indexing for M4, URL encryption/migration via Android Keystore, FileProvider, SQLite v2, safer resume | Pure tests passed; APK compiled in M7 |
+| M7 | Complete GitHub source mirror, CI React/Android builds, optional trusted SHA-256 verification in advanced downloader | Source unit tests passed; M7 checksum APK needs CI build + physical device QA |
 
-**GitHub Actions has produced a debug APK from the M5-source M6 branch. This project is still untested on an actual phone.**
+**GitHub Actions has produced a debug APK from the M5-source M7 branch. This project is still untested on an actual phone.**
 
 **The app is not at upstream feature parity.** Telegram, cloud downloaders, yt-dlp, AI matching, archive extraction, automatic watchlist sync, multipart downloads, global bandwidth throttle and 24/7 Android background transfers remain unimplemented.
 
@@ -72,8 +72,18 @@ node scripts/verify-source.cjs
 node scripts/test-install-native.mjs
 ```
 
-These checks are not proof of Android compilation, runtime correctness or security. See [M6 QA](docs/M6_QA.md), including the first successful Android debug CI build and remaining physical-device tests.
+These checks are not proof of Android compilation, runtime correctness or security. See [M7 QA](docs/M7_QA.md), including the first successful Android debug CI build and remaining physical-device tests.
 
 ## Attribution
 
 Original: [whyamihere773/Pawchive-Downloader](https://github.com/whyamihere773/Pawchive-Downloader) · [Custom source available license](https://github.com/whyamihere773/Pawchive-Downloader/blob/v1.2.9/LICENSE)
+
+
+## M7 (Android 14+ UIDT, developer preview)
+- New **BackgroundTransferJobService** uses Android JobScheduler's user-initiated jobs on API 34+. It is scheduled only after the user's explicit download action while the app is visible.
+- Includes Android OS notification, stop/retry callback, encrypted private file registry, capped transient retries, Range/ETag checkpoint and optional SHA-256 verification.
+- Completion is indexed into the M3 SQLite gallery under the existing M4 app-private output path.
+- Android 13 and earlier **fall back to the existing DownloadManager** in the new UI. The M4 foreground-session transfer remains separate.
+- System process kill, Doze, device restart, job quota, user force-stop and non-public downloads **are not yet verified**. User task-manager force-stop may prevent automatic retry; the user may need to reopen the app and press resume.
+- To build locally: `npm install && npm test && npm run android:init && cd android && ./gradlew assembleDebug`. Never install a debug APK over another differently signed app without backing up its data first.
+- Device QA checklist: `docs/M7_QA.md`; source license: `UPSTREAM_LICENSE.txt`. Project is for personal noncommercial use only.
